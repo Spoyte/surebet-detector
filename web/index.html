@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surebet Detector — Arbitrage & +EV Finder</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-brand">
+            <span class="logo">📊</span>
+            <span class="name">Surebet Detector</span>
+        </div>
+        <div class="nav-stats">
+            <span class="stat" id="forex-rate">EUR/USD: —</span>
+            <span class="stat" id="last-update">Last update: —</span>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="hero-content">
+            <h1>Find the edge</h1>
+            <p>Arbitrage and +EV opportunities across Unibet, Polymarket, and more.</p>
+            <div class="hero-actions">
+                <button onclick="refreshData()" class="btn btn-primary">
+                    🔄 Refresh Now
+                </button>
+                <a href="#opportunities" class="btn btn-secondary">View Opportunities</a>
+            </div>
+        </div>
+        
+        <div class="summary-cards">
+            <div class="summary-card arbitrage">
+                <span class="summary-label">Arbitrage</span>
+                <span class="summary-value" id="arb-count">—</span>
+                <span class="summary-sub">Guaranteed profit</span>
+            </div>
+            <div class="summary-card ev">
+                <span class="summary-label">+EV</span>
+                <span class="summary-value" id="ev-count">—</span>
+                <span class="summary-sub">Expected value</span>
+            </div>
+            <div class="summary-card promotions">
+                <span class="summary-label">Promos</span>
+                <span class="summary-value" id="promo-count">—</span>
+                <span class="summary-sub">Boosted odds</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <section id="opportunities" class="section">
+            <div class="section-header">
+                <h2>🎯 Arbitrage Opportunities</h2>
+                <p>Risk-free profit by betting on all outcomes</p>
+            </div>
+            
+            <div class="opportunities-grid" id="arbitrage-list">
+                <div class="loading">Loading opportunities...</div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-header">
+                <h2>💰 Positive EV Opportunities</h2>
+                <p>Value bets based on sharp bookmaker odds</p>
+            </div>
+            
+            <div class="opportunities-grid" id="ev-list">
+                <div class="loading">Loading opportunities...</div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-header">
+                <h2>📈 History</h2>
+                <p>Opportunity detection over time</p>
+            </div>
+            
+            <div class="history-table-container">
+                <table class="history-table" id="history-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Arbitrage</th>
+                            <th>+EV</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3" class="loading">Loading history...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>Surebet Detector — Built by Nemo for Noé</p>
+    </footer>
+
+    <script src="/app.js"></script>
+</body>
+</html>

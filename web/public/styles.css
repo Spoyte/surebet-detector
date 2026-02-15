@@ -1,0 +1,336 @@
+:root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-elevated: #1a1a25;
+    --border: #2a2a3a;
+    --text: #f0f0f5;
+    --text-secondary: #9090a0;
+    --text-muted: #606070;
+    --accent: #22c55e;
+    --accent-warning: #f59e0b;
+    --accent-danger: #ef4444;
+    --gradient-arb: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    --gradient-ev: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    --font-sans: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+}
+
+.nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background: rgba(10, 10, 15, 0.9);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+}
+
+.nav-brand { display: flex; align-items: center; gap: 0.75rem; }
+.nav-brand .logo { font-size: 1.5rem; }
+.nav-brand .name { font-weight: 600; font-size: 1.1rem; }
+
+.nav-stats { display: flex; gap: 1.5rem; }
+.nav-stats .stat {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+}
+
+.hero {
+    padding: 8rem 2rem 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.hero-content { margin-bottom: 2rem; }
+.hero-content h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #fff 0%, #9090a0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.hero-content p {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.hero-actions { display: flex; gap: 1rem; }
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: #000;
+}
+
+.btn-secondary {
+    background: var(--surface-elevated);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-card.arbitrage { border-color: rgba(34, 197, 94, 0.3); }
+.summary-card.ev { border-color: rgba(99, 102, 241, 0.3); }
+.summary-card.promotions { border-color: rgba(245, 158, 11, 0.3); }
+
+.summary-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.summary-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.summary-card.arbitrage .summary-value { color: var(--accent); }
+.summary-card.ev .summary-value { color: #818cf8; }
+.summary-card.promotions .summary-value { color: var(--accent-warning); }
+
+.summary-sub {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem 4rem;
+}
+
+.section { margin-bottom: 3rem; }
+
+.section-header {
+    margin-bottom: 1.5rem;
+}
+
+.section-header h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.section-header p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.opportunities-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.opportunity-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    transition: all 0.2s;
+}
+
+.opportunity-card:hover {
+    border-color: var(--text-muted);
+    transform: translateY(-2px);
+}
+
+.opportunity-card.arbitrage {
+    border-left: 4px solid var(--accent);
+}
+
+.opportunity-card.ev {
+    border-left: 4px solid #818cf8;
+}
+
+.opportunity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.opportunity-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.opportunity-sport {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.opportunity-profit {
+    text-align: right;
+}
+
+.profit-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.profit-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.opportunity-legs {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.leg {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--surface-elevated);
+    border-radius: 8px;
+}
+
+.leg-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.leg-outcome {
+    font-weight: 500;
+}
+
+.leg-bookmaker {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.leg-odds {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.opportunity-note {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.history-table-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.history-table th,
+.history-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.history-table th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.history-table td {
+    font-size: 0.9rem;
+}
+
+.history-table tr:last-child td {
+    border-bottom: none;
+}
+
+.loading {
+    color: var(--text-muted);
+    padding: 2rem;
+    text-align: center;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+.empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.footer {
+    text-align: center;
+    padding: 2rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    .summary-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .nav-stats {
+        display: none;
+    }
+    
+    .hero-content h1 {
+        font-size: 2rem;
+    }
+}
