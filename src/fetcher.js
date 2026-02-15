@@ -55,42 +55,21 @@ class OddsFetcher {
     }
 
     /**
-     * Fetch markets from Polymarket
+     * Fetch markets from Polymarket (using Gamma API - subgraph deprecated)
      */
     async fetchPolymarket() {
-        const query = `
-            query {
-                markets(
-                    where: { 
-                        active: true,
-                        closed: false
-                    }
-                    first: 100
-                    orderBy: volume
-                    orderDirection: desc
-                ) {
-                    id
-                    question
-                    description
-                    outcomes
-                    outcomePrices
-                    volume
-                    liquidity
-                    category
-                    endDate
-                    resolutionSource
-                }
-            }
-        `;
-
         try {
-            const response = await axios.post(
-                this.config.POLYMARKET_SUBGRAPH,
-                { query },
-                { timeout: 30000 }
-            );
+            // Use Polymarket's Gamma API instead of deprecated subgraph
+            // Note: order=desc causes 422, API defaults to desc sorting by volume
+            const url = 'https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=100&sort=volume';
+            const response = await axios.get(url, {
+                timeout: 30000,
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
 
-            return this.normalizePolymarketData(response.data.data.markets);
+            return this.normalizePolymarketData(response.data);
         } catch (error) {
             console.error('Polymarket error:', error.message);
             return [];
@@ -195,8 +174,18 @@ class OddsFetcher {
             // Skip non-sports markets for now
             if (!this.isSportsMarket(market)) continue;
 
-            const prices = JSON.parse(market.outcomePrices || '[]');
-            const outcomes = market.outcomes || [];
+            // Parse outcome prices from JSON string
+            let prices = [];
+            let outcomes = [];
+            
+            try {
+                prices = JSON.parse(market.outcomePrices || '[]');
+                outcomes = JSON.parse(market.outcomes || '[]');
+            } catch (e) {
+                // Fallback: try as-is if not JSON
+                prices = market.outcomePrices || [];
+                outcomes = market.outcomes || [];
+            }
 
             const eventData = {
                 id: market.id,
