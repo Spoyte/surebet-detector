@@ -113,6 +113,7 @@ body {
 .summary-card.arbitrage { border-color: rgba(34, 197, 94, 0.3); }
 .summary-card.ev { border-color: rgba(99, 102, 241, 0.3); }
 .summary-card.promotions { border-color: rgba(245, 158, 11, 0.3); }
+.summary-card.suspicious { border-color: rgba(239, 68, 68, 0.3); }
 
 .summary-label {
     font-size: 0.75rem;
@@ -131,6 +132,7 @@ body {
 .summary-card.arbitrage .summary-value { color: var(--accent); }
 .summary-card.ev .summary-value { color: #818cf8; }
 .summary-card.promotions .summary-value { color: var(--accent-warning); }
+.summary-card.suspicious .summary-value { color: var(--accent-danger); }
 
 .summary-sub {
     font-size: 0.875rem;

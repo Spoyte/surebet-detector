@@ -43,10 +43,10 @@
                 <span class="summary-value" id="ev-count">—</span>
                 <span class="summary-sub">Expected value</span>
             </div>
-            <div class="summary-card promotions">
-                <span class="summary-label">Promos</span>
-                <span class="summary-value" id="promo-count">—</span>
-                <span class="summary-sub">Boosted odds</span>
+            <div class="summary-card suspicious">
+                <span class="summary-label">Suspicious</span>
+                <span class="summary-value" id="suspicious-count">—</span>
+                <span class="summary-sub">Check promotions</span>
             </div>
         </div>
     </header>
@@ -66,11 +66,22 @@
         <section class="section">
             <div class="section-header">
                 <h2>💰 Positive EV Opportunities</h2>
-                <p>Value bets based on sharp bookmaker odds</p>
+                <p>Value bets based on sharp bookmaker odds (max 100% EV shown)</p>
             </div>
             
             <div class="opportunities-grid" id="ev-list">
                 <div class="loading">Loading opportunities...</div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-header">
+                <h2>⚠️ Suspicious Odds (Possible Promotions)</h2>
+                <p>Odds significantly higher than Pinnacle - may be boosted or errors</p>
+            </div>
+            
+            <div class="opportunities-grid" id="suspicious-list">
+                <div class="loading">Loading...</div>
             </div>
         </section>
 
