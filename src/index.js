@@ -21,4 +21,11 @@ console.log('Markets:', config.MARKETS);
 console.log('Min EV:', config.MIN_EV_THRESHOLD + '%');
 
 const dashboard = new WebDashboard(config);
-dashboard.start();
+
+// Start server if not in serverless environment
+if (process.env.VERCEL !== '1') {
+    dashboard.start();
+}
+
+// Export for Vercel serverless
+module.exports = dashboard.app;
