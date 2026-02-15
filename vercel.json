@@ -12,14 +12,5 @@
       "src": "/(.*)",
       "dest": "src/index.js"
     }
-  ],
-  "env": {
-    "ODDS_API_KEY": "@odds-api-key",
-    "FOREX_API_URL": "https://api.exchangerate-api.com/v4/latest/USD",
-    "POLYMARKET_SUBGRAPH": "https://api.thegraph.com/subgraphs/name/polymarket/matic-markets",
-    "UPDATE_CRON": "0 * * * *",
-    "MIN_EV_THRESHOLD": "5",
-    "SPORTS": "tennis,soccer",
-    "MARKETS": "h2h,outrights"
-  }
+  ]
 }
