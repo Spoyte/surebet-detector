@@ -1,0 +1,372 @@
+{
+  "timestamp": "2026-02-15T23:30:42.957Z",
+  "summary": {
+    "arbitrageCount": 2,
+    "positiveEVCount": 49,
+    "suspiciousCount": 4
+  },
+  "arbitrage": [
+    {
+      "type": "arbitrage",
+      "event": "Emma Navarro vs Elena Gabriela Ruse",
+      "sport": "tennis",
+      "commenceTime": "2026-02-16T07:00:00Z",
+      "profitPercent": 3.89,
+      "stakes": {
+        "stake1": 37.7,
+        "stake2": 62.3,
+        "totalStake": 100,
+        "guaranteedProfit": 4.05
+      },
+      "legs": [
+        {
+          "outcome": "Elena Gabriela Ruse",
+          "bookmaker": "Matchbook",
+          "odds": 2.76,
+          "stake": 37.7
+        },
+        {
+          "outcome": "Emma Navarro",
+          "bookmaker": "William Hill",
+          "odds": 1.67,
+          "stake": 62.3
+        }
+      ]
+    },
+    {
+      "type": "arbitrage",
+      "event": "Jessica Bouzas Maneiro vs Belinda Bencic",
+      "sport": "tennis",
+      "commenceTime": "2026-02-16T10:00:00Z",
+      "profitPercent": 0.39,
+      "stakes": {
+        "stake1": 80.31,
+        "stake2": 19.69,
+        "totalStake": 100,
+        "guaranteedProfit": 0.39
+      },
+      "legs": [
+        {
+          "outcome": "Belinda Bencic",
+          "bookmaker": "888sport",
+          "odds": 1.25,
+          "stake": 80.31
+        },
+        {
+          "outcome": "Jessica Bouzas Maneiro",
+          "bookmaker": "Matchbook",
+          "odds": 5.1,
+          "stake": 19.69
+        }
+      ]
+    }
+  ],
+  "positiveEV": [
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Mazatlán FC",
+      "bookmaker": "888sport",
+      "odds": 8,
+      "pinnacleOdds": 4.14,
+      "evPercent": 93.24,
+      "trueProbability": 24.15,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "Betfair",
+      "odds": 5.8,
+      "pinnacleOdds": 3.46,
+      "evPercent": 67.63,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "Coolbet",
+      "odds": 5.5,
+      "pinnacleOdds": 3.46,
+      "evPercent": 58.96,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "Matchbook",
+      "odds": 5.3,
+      "pinnacleOdds": 3.46,
+      "evPercent": 53.18,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "Unibet (NL)",
+      "odds": 5,
+      "pinnacleOdds": 3.46,
+      "evPercent": 44.51,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "Unibet (SE)",
+      "odds": 5,
+      "pinnacleOdds": 3.46,
+      "evPercent": 44.51,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "Winamax (DE)",
+      "odds": 4.9,
+      "pinnacleOdds": 3.46,
+      "evPercent": 41.62,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "Nordic Bet",
+      "odds": 4.85,
+      "pinnacleOdds": 3.46,
+      "evPercent": 40.17,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "Betsson",
+      "odds": 4.85,
+      "pinnacleOdds": 3.46,
+      "evPercent": 40.17,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "Betclic (FR)",
+      "odds": 4.6,
+      "pinnacleOdds": 3.46,
+      "evPercent": 32.95,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "LeoVegas (SE)",
+      "odds": 4.6,
+      "pinnacleOdds": 3.46,
+      "evPercent": 32.95,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "Winamax (FR)",
+      "odds": 4.5,
+      "pinnacleOdds": 3.46,
+      "evPercent": 30.06,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "commenceTime": "2026-02-15T23:05:00Z",
+      "outcome": "Draw",
+      "bookmaker": "888sport",
+      "odds": 4.5,
+      "pinnacleOdds": 3.46,
+      "evPercent": 30.06,
+      "trueProbability": 28.9,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Brentford vs Macclesfield Town",
+      "sport": "soccer",
+      "commenceTime": "2026-02-16T19:30:00Z",
+      "outcome": "Macclesfield Town",
+      "bookmaker": "Nordic Bet",
+      "odds": 14.5,
+      "pinnacleOdds": 12.1,
+      "evPercent": 19.83,
+      "trueProbability": 8.26,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Brentford vs Macclesfield Town",
+      "sport": "soccer",
+      "commenceTime": "2026-02-16T19:30:00Z",
+      "outcome": "Macclesfield Town",
+      "bookmaker": "Betsson",
+      "odds": 14.5,
+      "pinnacleOdds": 12.1,
+      "evPercent": 19.83,
+      "trueProbability": 8.26,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Brentford vs Macclesfield Town",
+      "sport": "soccer",
+      "commenceTime": "2026-02-16T19:30:00Z",
+      "outcome": "Macclesfield Town",
+      "bookmaker": "Betfair",
+      "odds": 14.5,
+      "pinnacleOdds": 12.1,
+      "evPercent": 19.83,
+      "trueProbability": 8.26,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Brentford vs Macclesfield Town",
+      "sport": "soccer",
+      "commenceTime": "2026-02-16T19:30:00Z",
+      "outcome": "Macclesfield Town",
+      "bookmaker": "Matchbook",
+      "odds": 14.5,
+      "pinnacleOdds": 12.1,
+      "evPercent": 19.83,
+      "trueProbability": 8.26,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Panserraikos FC vs Atromitos Athens",
+      "sport": "soccer",
+      "commenceTime": "2026-02-16T16:00:00Z",
+      "outcome": "Panserraikos FC",
+      "bookmaker": "Betfair",
+      "odds": 10.5,
+      "pinnacleOdds": 9.02,
+      "evPercent": 16.41,
+      "trueProbability": 11.09,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Brentford vs Macclesfield Town",
+      "sport": "soccer",
+      "commenceTime": "2026-02-16T19:30:00Z",
+      "outcome": "Macclesfield Town",
+      "bookmaker": "Coolbet",
+      "odds": 14,
+      "pinnacleOdds": 12.1,
+      "evPercent": 15.7,
+      "trueProbability": 8.26,
+      "note": "Using Pinnacle as sharp baseline"
+    },
+    {
+      "type": "positiveEV",
+      "event": "Kamilla Rakhimova vs Iva Jović",
+      "sport": "tennis",
+      "commenceTime": "2026-02-16T07:00:00Z",
+      "outcome": "Kamilla Rakhimova",
+      "bookmaker": "Matchbook",
+      "odds": 4.5,
+      "pinnacleOdds": 3.92,
+      "evPercent": 14.8,
+      "trueProbability": 25.51,
+      "note": "Using Pinnacle as sharp baseline"
+    }
+  ],
+  "suspicious": [
+    {
+      "type": "suspicious",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "outcome": "Mazatlán FC",
+      "bookmaker": "Coolbet",
+      "odds": 12,
+      "pinnacleOdds": 4.14,
+      "ratio": 2.9,
+      "note": "Odds significantly higher than Pinnacle - possible promotion or error"
+    },
+    {
+      "type": "suspicious",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "outcome": "Mazatlán FC",
+      "bookmaker": "Nordic Bet",
+      "odds": 10.5,
+      "pinnacleOdds": 4.14,
+      "ratio": 2.54,
+      "note": "Odds significantly higher than Pinnacle - possible promotion or error"
+    },
+    {
+      "type": "suspicious",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "outcome": "Mazatlán FC",
+      "bookmaker": "Betsson",
+      "odds": 10.5,
+      "pinnacleOdds": 4.14,
+      "ratio": 2.54,
+      "note": "Odds significantly higher than Pinnacle - possible promotion or error"
+    },
+    {
+      "type": "suspicious",
+      "event": "Mazatlán FC vs Santos Laguna",
+      "sport": "soccer",
+      "outcome": "Mazatlán FC",
+      "bookmaker": "Betfair",
+      "odds": 12,
+      "pinnacleOdds": 4.14,
+      "ratio": 2.9,
+      "note": "Odds significantly higher than Pinnacle - possible promotion or error"
+    }
+  ]
+}
