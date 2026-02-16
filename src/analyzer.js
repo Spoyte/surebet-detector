@@ -57,9 +57,12 @@ class OpportunityAnalyzer {
     findArbitrage(event) {
         const opportunities = [];
         
+        // Deduplicate bookmakers by name first (regional variants)
+        const uniqueBookmakers = this.deduplicateBookmakers(event.bookmakers);
+        
         // Get all h2h markets from different bookmakers
         const h2hMarkets = [];
-        for (const bookmaker of event.bookmakers) {
+        for (const bookmaker of uniqueBookmakers) {
             const h2h = bookmaker.markets.find(m => m.type === 'h2h');
             if (h2h) {
                 h2hMarkets.push({
@@ -154,6 +157,27 @@ class OpportunityAnalyzer {
     }
 
     /**
+     * Deduplicate bookmakers by name, keeping the one with best odds for each outcome
+     */
+    deduplicateBookmakers(bookmakers) {
+        const bestByName = new Map();
+        
+        for (const bookmaker of bookmakers) {
+            const h2h = bookmaker.markets.find(m => m.type === 'h2h');
+            if (!h2h) continue;
+            
+            // Calculate average odds as a proxy for "best"
+            const avgOdds = h2h.outcomes.reduce((sum, o) => sum + o.odds, 0) / h2h.outcomes.length;
+            
+            if (!bestByName.has(bookmaker.name) || bestByName.get(bookmaker.name).avgOdds < avgOdds) {
+                bestByName.set(bookmaker.name, { bookmaker, avgOdds });
+            }
+        }
+        
+        return Array.from(bestByName.values()).map(b => b.bookmaker);
+    }
+
+    /**
      * Find +EV opportunities using sharp bookmaker as baseline
      */
     findPositiveEV(event, opportunities) {
@@ -171,9 +195,12 @@ class OpportunityAnalyzer {
         const pinnacleH2H = pinnacle.markets.find(m => m.type === 'h2h');
         if (!pinnacleH2H) return;
 
+        // Deduplicate bookmakers by name (regional variants like unibet_nl, unibet_se)
+        const uniqueBookmakers = this.deduplicateBookmakers(event.bookmakers);
+
         // Compare other bookmakers to Pinnacle
-        for (const bookmaker of event.bookmakers) {
-            if (bookmaker.key === 'pinnacle') continue;
+        for (const bookmaker of uniqueBookmakers) {
+            if (bookmaker.name === 'Pinnacle') continue;
 
             const h2h = bookmaker.markets.find(m => m.type === 'h2h');
             if (!h2h) continue;
