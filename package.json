@@ -8,6 +8,7 @@
     "dev": "nodemon src/index.js",
     "fetch": "node src/fetcher.js",
     "analyze": "node src/analyzer.js",
+    "hourly": "node run-hourly.js",
     "web": "node src/web/server.js"
   },
   "dependencies": {

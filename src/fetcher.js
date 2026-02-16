@@ -114,13 +114,15 @@ class OddsFetcher {
 
     /**
      * Normalize Odds API data to common format
+     * Only includes French bookmakers: Unibet, Betclic, Winamax
      */
     normalizeOddsAPIData(data, sport) {
+        // Only French bookmakers we care about
+        const frenchBookmakers = ['unibet', 'betclic', 'winamax'];
         const bookmakerMap = {
             'unibet': 'Unibet',
             'betclic': 'Betclic',
-            'winamax': 'Winamax',
-            'pinnacle': 'Pinnacle'
+            'winamax': 'Winamax'
         };
 
         const events = [];
@@ -136,8 +138,11 @@ class OddsFetcher {
             };
 
             for (const bookmaker of event.bookmakers) {
+                // Skip non-French bookmakers
+                if (!frenchBookmakers.includes(bookmaker.key)) continue;
+
                 const normalizedBookmaker = {
-                    name: bookmakerMap[bookmaker.key] || bookmaker.title,
+                    name: bookmakerMap[bookmaker.key],
                     key: bookmaker.key,
                     lastUpdate: bookmaker.last_update,
                     markets: []
@@ -158,7 +163,10 @@ class OddsFetcher {
                 eventData.bookmakers.push(normalizedBookmaker);
             }
 
-            events.push(eventData);
+            // Only include events that have at least one French bookmaker
+            if (eventData.bookmakers.length > 0) {
+                events.push(eventData);
+            }
         }
 
         return events;

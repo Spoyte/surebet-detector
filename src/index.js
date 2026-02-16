@@ -62,7 +62,7 @@ function loadConfig() {
     UPDATE_CRON: process.env.UPDATE_CRON || '0 * * * *',
     MIN_EV_THRESHOLD: parseFloat(process.env.MIN_EV_THRESHOLD) || 5,
     SPORTS: process.env.SPORTS || 'tennis,soccer',
-    MARKETS: process.env.MARKETS || 'h2h,outrights',
+    MARKETS: process.env.MARKETS || 'h2h',
     PORT: parseInt(process.env.PORT, 10) || 3000,
     NODE_ENV: process.env.NODE_ENV || 'development'
   };
