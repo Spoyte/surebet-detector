@@ -7,6 +7,7 @@ class OpportunityAnalyzer {
         this.MIN_EV_THRESHOLD = parseFloat(config.MIN_EV_THRESHOLD) || 5;
         this.MAX_EV_DISPLAY = 100; // Cap display at 100% to avoid unrealistic values
         this.SUSPICIOUS_ODDS_RATIO = 2.5; // Flag if odds >2.5x Pinnacle
+        this.PINNACLE_CONSENSUS_THRESHOLD = 1.5; // Flag Pinnacle if >1.5x consensus median
     }
 
     /**
@@ -178,6 +179,40 @@ class OpportunityAnalyzer {
     }
 
     /**
+     * Calculate median odds from all bookmakers for a given outcome
+     */
+    calculateConsensusOdds(bookmakers, outcomeIndex) {
+        const odds = [];
+        for (const bookmaker of bookmakers) {
+            const h2h = bookmaker.markets.find(m => m.type === 'h2h');
+            if (h2h && h2h.outcomes[outcomeIndex]) {
+                odds.push(h2h.outcomes[outcomeIndex].odds);
+            }
+        }
+        
+        if (odds.length === 0) return null;
+        
+        odds.sort((a, b) => a - b);
+        const mid = Math.floor(odds.length / 2);
+        
+        if (odds.length % 2 === 0) {
+            return (odds[mid - 1] + odds[mid]) / 2;
+        }
+        return odds[mid];
+    }
+
+    /**
+     * Check if Pinnacle odds are significantly different from consensus
+     * Returns true if Pinnacle appears to have stale/bad data
+     */
+    isPinnacleStale(pinnacleOdds, consensusOdds) {
+        if (!consensusOdds || consensusOdds === 0) return false;
+        const ratio = pinnacleOdds / consensusOdds;
+        // If Pinnacle is >1.5x or <0.67x of consensus, it may be stale
+        return ratio > this.PINNACLE_CONSENSUS_THRESHOLD || ratio < (1 / this.PINNACLE_CONSENSUS_THRESHOLD);
+    }
+
+    /**
      * Find +EV opportunities using sharp bookmaker as baseline
      */
     findPositiveEV(event, opportunities) {
@@ -198,6 +233,31 @@ class OpportunityAnalyzer {
         // Deduplicate bookmakers by name (regional variants like unibet_nl, unibet_se)
         const uniqueBookmakers = this.deduplicateBookmakers(event.bookmakers);
 
+        // Calculate consensus odds for each outcome to validate Pinnacle
+        const consensusOdds = [];
+        for (let i = 0; i < pinnacleH2H.outcomes.length; i++) {
+            consensusOdds.push(this.calculateConsensusOdds(uniqueBookmakers, i));
+        }
+
+        // Check if Pinnacle has stale data for any outcome
+        const staleOutcomes = new Set();
+        for (let i = 0; i < pinnacleH2H.outcomes.length; i++) {
+            if (this.isPinnacleStale(pinnacleH2H.outcomes[i].odds, consensusOdds[i])) {
+                staleOutcomes.add(i);
+                opportunities.suspicious.push({
+                    type: 'suspicious',
+                    event: event.eventName,
+                    sport: event.sport,
+                    outcome: pinnacleH2H.outcomes[i].name,
+                    bookmaker: 'Pinnacle',
+                    odds: pinnacleH2H.outcomes[i].odds,
+                    consensusOdds: consensusOdds[i],
+                    ratio: parseFloat((pinnacleH2H.outcomes[i].odds / consensusOdds[i]).toFixed(2)),
+                    note: 'Pinnacle odds significantly different from consensus - possible stale data'
+                });
+            }
+        }
+
         // Compare other bookmakers to Pinnacle
         for (const bookmaker of uniqueBookmakers) {
             if (bookmaker.name === 'Pinnacle') continue;
@@ -210,6 +270,9 @@ class OpportunityAnalyzer {
                 const pinnacleOutcome = pinnacleH2H.outcomes[i];
 
                 if (!pinnacleOutcome) continue;
+
+                // Skip EV calculation if Pinnacle has stale data for this outcome
+                if (staleOutcomes.has(i)) continue;
 
                 const oddsRatio = outcome.odds / pinnacleOutcome.odds;
 
