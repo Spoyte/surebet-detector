@@ -195,10 +195,14 @@ class OpportunityAnalyzer {
         odds.sort((a, b) => a - b);
         const mid = Math.floor(odds.length / 2);
         
+        let median;
         if (odds.length % 2 === 0) {
-            return (odds[mid - 1] + odds[mid]) / 2;
+            median = (odds[mid - 1] + odds[mid]) / 2;
+        } else {
+            median = odds[mid];
         }
-        return odds[mid];
+        // Round to 2 decimal places to avoid floating point precision issues
+        return Math.round(median * 100) / 100;
     }
 
     /**
