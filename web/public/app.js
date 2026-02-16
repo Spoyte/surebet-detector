@@ -1,5 +1,7 @@
 // Surebet Detector Dashboard App
 
+let currentConfig = null;
+
 async function fetchOpportunities() {
     try {
         const response = await fetch('/api/opportunities');
@@ -26,6 +28,17 @@ async function fetchForex() {
         return await response.json();
     } catch (error) {
         console.error('Failed to fetch forex:', error);
+        return null;
+    }
+}
+
+async function fetchConfig() {
+    try {
+        const response = await fetch('/api/config');
+        currentConfig = await response.json();
+        return currentConfig;
+    } catch (error) {
+        console.error('Failed to fetch config:', error);
         return null;
     }
 }
@@ -209,6 +222,272 @@ function formatTime(isoString) {
     });
 }
 
+// Settings Modal Functions
+function toggleSettings() {
+    const modal = document.getElementById('settings-modal');
+    modal.classList.toggle('active');
+    
+    if (modal.classList.contains('active')) {
+        loadSettingsIntoForm();
+    }
+}
+
+async function loadSettingsIntoForm() {
+    const config = await fetchConfig();
+    if (!config) return;
+    
+    // Set threshold values
+    setInputValue('evThresholds.minEVPercent', config.evThresholds?.minEVPercent);
+    setInputValue('evThresholds.maxEVPercent', config.evThresholds?.maxEVPercent);
+    setInputValue('evThresholds.minArbitrageProfit', config.evThresholds?.minArbitrageProfit);
+    
+    // Set sports checkboxes
+    setCheckboxValues('sports.enabled', config.sports?.enabled);
+    
+    // Set bookmakers checkboxes
+    setCheckboxValues('bookmakers.enabled', config.bookmakers?.enabled);
+    setCheckboxValue('bookmakers.requirePinnacle', config.bookmakers?.requirePinnacle);
+    
+    // Set timing values
+    const minHours = Math.floor((config.timing?.minTimeToEvent || 0) / 60);
+    const maxHours = Math.floor((config.timing?.maxTimeToEvent || 10080) / 60);
+    setInputValue('timing.minTimeToEvent', minHours);
+    setInputValue('timing.maxTimeToEvent', maxHours);
+    
+    setCheckboxValue('timing.quietHours.enabled', config.timing?.quietHours?.enabled);
+    setInputValue('timing.quietHours.start', config.timing?.quietHours?.start);
+    setInputValue('timing.quietHours.end', config.timing?.quietHours?.end);
+    
+    // Toggle quiet hours row visibility
+    const quietHoursRow = document.querySelector('.quiet-hours-row');
+    if (quietHoursRow) {
+        quietHoursRow.style.display = config.timing?.quietHours?.enabled ? 'grid' : 'none';
+    }
+    
+    // Set alert values
+    setCheckboxValue('alerts.telegram.enabled', config.alerts?.telegram?.enabled);
+    setInputValue('alerts.telegram.minEVForAlert', config.alerts?.telegram?.minEVForAlert);
+    setInputValue('alerts.telegram.minArbitrageForAlert', config.alerts?.telegram?.minArbitrageForAlert);
+    setCheckboxValue('alerts.telegram.quietHoursRespected', config.alerts?.telegram?.quietHoursRespected);
+}
+
+function setInputValue(name, value) {
+    const input = document.querySelector(`[name="${name}"]`);
+    if (input && value !== undefined) {
+        input.value = value;
+    }
+}
+
+function setCheckboxValue(name, checked) {
+    const input = document.querySelector(`[name="${name}"]`);
+    if (input) {
+        input.checked = !!checked;
+    }
+}
+
+function setCheckboxValues(name, values) {
+    if (!Array.isArray(values)) return;
+    const inputs = document.querySelectorAll(`[name="${name}"]`);
+    inputs.forEach(input => {
+        input.checked = values.includes(input.value);
+    });
+}
+
+function getCheckboxValues(name) {
+    const inputs = document.querySelectorAll(`[name="${name}"]:checked`);
+    return Array.from(inputs).map(input => input.value);
+}
+
+async function saveSettings() {
+    const form = document.getElementById('settings-form');
+    const formData = new FormData(form);
+    
+    // Build config object from form
+    const config = {
+        evThresholds: {
+            minEVPercent: parseFloat(formData.get('evThresholds.minEVPercent')),
+            maxEVPercent: parseFloat(formData.get('evThresholds.maxEVPercent')),
+            minArbitrageProfit: parseFloat(formData.get('evThresholds.minArbitrageProfit'))
+        },
+        sports: {
+            enabled: getCheckboxValues('sports.enabled')
+        },
+        bookmakers: {
+            enabled: getCheckboxValues('bookmakers.enabled'),
+            requirePinnacle: document.querySelector('[name="bookmakers.requirePinnacle"]').checked
+        },
+        timing: {
+            minTimeToEvent: parseInt(formData.get('timing.minTimeToEvent')) * 60,
+            maxTimeToEvent: parseInt(formData.get('timing.maxTimeToEvent')) * 60,
+            quietHours: {
+                enabled: document.querySelector('[name="timing.quietHours.enabled"]').checked,
+                start: formData.get('timing.quietHours.start'),
+                end: formData.get('timing.quietHours.end')
+            }
+        },
+        alerts: {
+            telegram: {
+                enabled: document.querySelector('[name="alerts.telegram.enabled"]').checked,
+                minEVForAlert: parseFloat(formData.get('alerts.telegram.minEVForAlert')),
+                minArbitrageForAlert: parseFloat(formData.get('alerts.telegram.minArbitrageForAlert')),
+                quietHoursRespected: document.querySelector('[name="alerts.telegram.quietHoursRespected"]').checked
+            }
+        }
+    };
+    
+    try {
+        const response = await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        
+        if (response.ok) {
+            toggleSettings();
+            // Refresh data with new filters
+            const opportunities = await fetchOpportunities();
+            renderDashboard(opportunities);
+        } else {
+            alert('Failed to save settings');
+        }
+    } catch (error) {
+        console.error('Failed to save settings:', error);
+        alert('Failed to save settings');
+    }
+}
+
+async function resetSettings() {
+    if (!confirm('Reset all settings to defaults?')) return;
+    
+    try {
+        const response = await fetch('/api/config/reset', { method: 'POST' });
+        if (response.ok) {
+            loadSettingsIntoForm();
+            const opportunities = await fetchOpportunities();
+            renderDashboard(opportunities);
+        }
+    } catch (error) {
+        console.error('Failed to reset settings:', error);
+    }
+}
+
+// Tab switching
+function setupTabs() {
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tab;
+            
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            
+            btn.classList.add('active');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+        });
+    });
+}
+
+// Quiet hours toggle
+function setupQuietHoursToggle() {
+    const checkbox = document.querySelector('[name="timing.quietHours.enabled"]');
+    if (checkbox) {
+        checkbox.addEventListener('change', (e) => {
+            const row = document.querySelector('.quiet-hours-row');
+            if (row) {
+                row.style.display = e.target.checked ? 'grid' : 'none';
+            }
+        });
+    }
+}
+
+// Report dates setup
+function setupReportDates() {
+    const endDate = document.getElementById('report-end-date');
+    const startDate = document.getElementById('report-start-date');
+    
+    if (endDate && startDate) {
+        // Set default dates (last 30 days)
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        endDate.value = today.toISOString().split('T')[0];
+        startDate.value = thirtyDaysAgo.toISOString().split('T')[0];
+    }
+}
+
+// Generate report
+async function generateReport() {
+    const startDate = document.getElementById('report-start-date')?.value;
+    const endDate = document.getElementById('report-end-date')?.value;
+    const format = document.getElementById('report-format')?.value || 'csv';
+    
+    const btn = document.querySelector('.report-controls .btn-primary');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '📥 Generating...';
+    
+    try {
+        const response = await fetch('/api/reports/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ startDate, endDate, format })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Download the file
+            window.location.href = `/api/reports/download/${data.filename}`;
+            // Refresh the reports list
+            setTimeout(loadReportsList, 1000);
+        } else {
+            alert('Failed to generate report');
+        }
+    } catch (error) {
+        console.error('Failed to generate report:', error);
+        alert('Failed to generate report');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
+// Load reports list
+async function loadReportsList() {
+    try {
+        const response = await fetch('/api/reports');
+        const reports = await response.json();
+        
+        const tbody = document.querySelector('#reports-table tbody');
+        if (!tbody) return;
+        
+        if (reports.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="empty-state">No reports generated yet</td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = reports.map(r => `
+            <tr>
+                <td>${escapeHtml(r.filename)}</td>
+                <td>${formatTime(r.created)}</td>
+                <td>
+                    <a href="/api/reports/download/${encodeURIComponent(r.filename)}" class="btn btn-secondary" style="padding: 0.5rem 1rem;">
+                        Download
+                    </a>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Failed to load reports:', error);
+    }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     // Load initial data
@@ -220,6 +499,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     const forex = await fetchForex();
     updateForexDisplay(forex);
+    
+    // Setup UI
+    setupTabs();
+    setupQuietHoursToggle();
+    setupReportDates();
+    
+    // Load reports list
+    loadReportsList();
     
     // Auto-refresh every 5 minutes
     setInterval(async () => {

@@ -17,6 +17,7 @@
         <div class="nav-stats">
             <span class="stat" id="forex-rate">EUR/USD: —</span>
             <span class="stat" id="last-update">Last update: —</span>
+            <button class="btn btn-icon" onclick="toggleSettings()" title="Settings">⚙️</button>
         </div>
     </nav>
 
@@ -29,6 +30,9 @@
                     🔄 Refresh Now
                 </button>
                 <a href="#opportunities" class="btn btn-secondary">View Opportunities</a>
+                <button onclick="toggleSettings()" class="btn btn-secondary">
+                    ⚙️ Alert Settings
+                </button>
             </div>
         </div>
         
@@ -108,11 +112,209 @@
                 </table>
             </div>
         </section>
+
+        <section class="section">
+            <div class="section-header">
+                <h2>📊 Tax Reports</h2>
+                <p>Generate tax-friendly reports for your betting activity</p>
+            </div>
+            
+            <div class="report-controls">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" id="report-start-date">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" id="report-end-date">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Format</label>
+                        <select id="report-format">
+                            <option value="csv">CSV</option>
+                            <option value="excel">Excel (.xls)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button onclick="generateReport()" class="btn btn-primary">
+                    📥 Generate Report
+                </button>
+            </div>
+            
+            <div class="history-table-container" style="margin-top: 1.5rem;">
+                <table class="history-table" id="reports-table">
+                    <thead>
+                        <tr>
+                            <th>Report File</th>
+                            <th>Created</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3" class="loading">Loading reports...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </main>
 
     <footer class="footer">
         <p>Surebet Detector — Built by Nemo for Noé</p>
     </footer>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Alert Settings</h2>
+                <button class="btn btn-icon" onclick="toggleSettings()">✕</button>
+            </div>
+            
+            <div class="settings-tabs">
+                <button class="tab-btn active" data-tab="thresholds">Thresholds</button>
+                <button class="tab-btn" data-tab="sports">Sports</button>
+                <button class="tab-btn" data-tab="bookmakers">Bookmakers</button>
+                <button class="tab-btn" data-tab="timing">Timing</button>
+                <button class="tab-btn" data-tab="alerts">Alerts</button>
+            </div>
+
+            <form id="settings-form" class="settings-form">
+                <!-- Thresholds Tab -->
+                <div class="tab-content active" id="tab-thresholds">
+                    <div class="form-group">
+                        <label>Minimum EV% to Display</label>
+                        <input type="number" name="evThresholds.minEVPercent" min="0" max="100" step="0.5" value="5">
+                        <span class="help">Only show +EV opportunities above this threshold</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Maximum EV% Cap</label>
+                        <input type="number" name="evThresholds.maxEVPercent" min="10" max="500" step="10" value="100">
+                        <span class="help">Hide unrealistic EV values above this cap</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Minimum Arbitrage Profit%</label>
+                        <input type="number" name="evThresholds.minArbitrageProfit" min="0" max="10" step="0.1" value="0.5">
+                        <span class="help">Only show arbitrage opportunities above this profit</span>
+                    </div>
+                </div>
+
+                <!-- Sports Tab -->
+                <div class="tab-content" id="tab-sports">
+                    <div class="form-group">
+                        <label>Enabled Sports</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox"><input type="checkbox" name="sports.enabled" value="tennis" checked> Tennis</label>
+                            <label class="checkbox"><input type="checkbox" name="sports.enabled" value="soccer" checked> Soccer</label>
+                            <label class="checkbox"><input type="checkbox" name="sports.enabled" value="basketball" checked> Basketball</label>
+                            <label class="checkbox"><input type="checkbox" name="sports.enabled" value="baseball"> Baseball</label>
+                            <label class="checkbox"><input type="checkbox" name="sports.enabled" value="hockey"> Hockey</label>
+                            <label class="checkbox"><input type="checkbox" name="sports.enabled" value="american_football"> American Football</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bookmakers Tab -->
+                <div class="tab-content" id="tab-bookmakers">
+                    <div class="form-group">
+                        <label>Enabled Bookmakers</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox"><input type="checkbox" name="bookmakers.enabled" value="Pinnacle" checked> Pinnacle (Sharp)</label>
+                            <label class="checkbox"><input type="checkbox" name="bookmakers.enabled" value="Unibet" checked> Unibet</label>
+                            <label class="checkbox"><input type="checkbox" name="bookmakers.enabled" value="Betclic" checked> Betclic</label>
+                            <label class="checkbox"><input type="checkbox" name="bookmakers.enabled" value="Winamax" checked> Winamax</label>
+                            <label class="checkbox"><input type="checkbox" name="bookmakers.enabled" value="FDJ" checked> FDJ</label>
+                            <label class="checkbox"><input type="checkbox" name="bookmakers.enabled" value="ParionsSport" checked> ParionsSport</label>
+                            <label class="checkbox"><input type="checkbox" name="bookmakers.enabled" value="ZEbet" checked> ZEbet</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox">
+                            <input type="checkbox" name="bookmakers.requirePinnacle" checked>
+                            Require Pinnacle for EV calculation
+                        </label>
+                        <span class="help">Only show +EV when Pinnacle odds are available as baseline</span>
+                    </div>
+                </div>
+
+                <!-- Timing Tab -->
+                <div class="tab-content" id="tab-timing">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Min Time to Event (hours)</label>
+                            <input type="number" name="timing.minTimeToEvent" min="0" max="168" value="0">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Max Time to Event (hours)</label>
+                            <input type="number" name="timing.maxTimeToEvent" min="1" max="720" value="168">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox">
+                            <input type="checkbox" name="timing.quietHours.enabled">
+                            Enable Quiet Hours
+                        </label>
+                    </div>
+                    
+                    <div class="form-row quiet-hours-row" style="display: none;">
+                        <div class="form-group">
+                            <label>Start</label>
+                            <input type="time" name="timing.quietHours.start" value="23:00">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>End</label>
+                            <input type="time" name="timing.quietHours.end" value="08:00">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerts Tab -->
+                <div class="tab-content" id="tab-alerts">
+                    <div class="form-group">
+                        <label class="checkbox">
+                            <input type="checkbox" name="alerts.telegram.enabled" checked>
+                            Telegram Alerts Enabled
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Min EV% for Telegram Alert</label>
+                        <input type="number" name="alerts.telegram.minEVForAlert" min="1" max="100" step="0.5" value="8">
+                        <span class="help">Only send Telegram notification for +EV above this threshold</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Min Arbitrage% for Telegram Alert</label>
+                        <input type="number" name="alerts.telegram.minArbitrageForAlert" min="0.5" max="10" step="0.1" value="1">
+                        <span class="help">Only send Telegram notification for arbitrage above this threshold</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox">
+                            <input type="checkbox" name="alerts.telegram.quietHoursRespected" checked>
+                            Respect Quiet Hours for Telegram
+                        </label>
+                    </div>
+                </div>
+            </form>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="resetSettings()">Reset to Defaults</button>
+                <button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+            </div>
+        </div>
+    </div>
 
     <script src="/app.js"></script>
 </body>

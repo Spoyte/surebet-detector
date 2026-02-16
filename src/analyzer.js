@@ -1,9 +1,12 @@
+const AlertConfig = require('./alert-config.js');
+
 /**
  * Enhanced analyzer with better filtering and categorization
  */
 class OpportunityAnalyzer {
     constructor(config) {
         this.config = config;
+        this.alertConfig = new AlertConfig();
         this.MIN_EV_THRESHOLD = parseFloat(config.MIN_EV_THRESHOLD) || 5;
         this.MAX_EV_DISPLAY = 100; // Cap display at 100% to avoid unrealistic values
         this.SUSPICIOUS_ODDS_RATIO = 2.5; // Flag if odds >2.5x Pinnacle
@@ -25,6 +28,9 @@ class OpportunityAnalyzer {
 
         // Analyze Odds API data
         for (const event of data.oddsData) {
+            // Skip if sport is disabled
+            if (!this.alertConfig.isSportEnabled(event.sport)) continue;
+
             // Find pure arbitrage within bookmakers
             const arbOpps = this.findArbitrage(event);
             opportunities.arbitrage.push(...arbOpps);
@@ -49,7 +55,10 @@ class OpportunityAnalyzer {
         // Filter out extreme values from main display
         opportunities.positiveEV = opportunities.positiveEV.filter(ev => ev.evPercent <= this.MAX_EV_DISPLAY);
 
-        return opportunities;
+        // Apply user-configured filters
+        const filtered = this.alertConfig.filterOpportunities(opportunities);
+        
+        return filtered;
     }
 
     /**

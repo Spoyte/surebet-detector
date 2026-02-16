@@ -6,6 +6,8 @@ const cron = require('node-cron');
 const OddsFetcher = require('../fetcher');
 const OpportunityAnalyzer = require('../analyzer');
 const PromotionsTracker = require('../promotions');
+const AlertConfig = require('../alert-config');
+const TaxExporter = require('../tax-exporter');
 
 class WebDashboard {
     constructor(config) {
@@ -14,6 +16,8 @@ class WebDashboard {
         this.fetcher = new OddsFetcher(config);
         this.analyzer = new OpportunityAnalyzer(config);
         this.promotions = new PromotionsTracker();
+        this.alertConfig = new AlertConfig();
+        this.taxExporter = new TaxExporter();
         this.latestOpportunities = null;
         
         // Setup middleware first
@@ -89,6 +93,86 @@ class WebDashboard {
             }
         });
 
+        // Alert Configuration API
+        this.app.get('/api/config', (req, res) => {
+            try {
+                res.json(this.alertConfig.getPublicConfig());
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/config', (req, res) => {
+            try {
+                const success = this.alertConfig.updateConfig(req.body);
+                if (success) {
+                    res.json({ success: true, config: this.alertConfig.getPublicConfig() });
+                } else {
+                    res.status(500).json({ error: 'Failed to save configuration' });
+                }
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/config/reset', (req, res) => {
+            try {
+                const success = this.alertConfig.resetToDefaults();
+                if (success) {
+                    res.json({ success: true, config: this.alertConfig.getPublicConfig() });
+                } else {
+                    res.status(500).json({ error: 'Failed to reset configuration' });
+                }
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Filtered opportunities with config applied
+        this.app.get('/api/opportunities/filtered', async (req, res) => {
+            try {
+                const data = await this.loadLatestData();
+                // Already filtered by analyzer using alertConfig
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Tax Report API
+        this.app.get('/api/reports', async (req, res) => {
+            try {
+                const reports = await this.taxExporter.listReports();
+                res.json(reports);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/reports/generate', async (req, res) => {
+            try {
+                const { startDate, endDate, format = 'csv' } = req.body;
+                const options = {
+                    startDate: startDate ? new Date(startDate) : undefined,
+                    endDate: endDate ? new Date(endDate) : undefined,
+                    format
+                };
+                const filepath = await this.taxExporter.generateReport(options);
+                res.json({ success: true, filepath, filename: path.basename(filepath) });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/reports/download/:filename', async (req, res) => {
+            try {
+                const filepath = this.taxExporter.getReportPath(req.params.filename);
+                res.download(filepath);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
         // Main dashboard
         this.app.get('/', (req, res) => {
             res.sendFile(path.join(__dirname, '../../web/index.html'));
@@ -148,15 +232,23 @@ class WebDashboard {
     async sendTelegramNotification(opportunities) {
         const axios = require('axios');
         
-        const highValueArbs = opportunities.arbitrage.filter(a => a.profitPercent >= 2);
-        const highValueEV = opportunities.positiveEV.filter(e => e.evPercent >= this.config.MIN_EV_THRESHOLD);
+        // Filter opportunities based on alert configuration
+        const alertConfig = this.alertConfig.config;
+        
+        const highValueArbs = opportunities.arbitrage.filter(a => 
+            this.alertConfig.shouldSendTelegramAlert(a, 'arbitrage')
+        );
+        
+        const highValueEV = opportunities.positiveEV.filter(e => 
+            this.alertConfig.shouldSendTelegramAlert(e, 'ev')
+        );
         
         if (highValueArbs.length === 0 && highValueEV.length === 0) return;
 
         let message = '🎯 *Surebet Detector Alert*\n\n';
         
         if (highValueArbs.length > 0) {
-            message += `*${highValueArbs.length} Arbitrage Opportunities*\n\n`;
+            message += `*${highValueArbs.length} High-Value Arbitrage Opportunities*\n\n`;
             for (const arb of highValueArbs.slice(0, 3)) {
                 message += `📊 *${arb.event}*\n`;
                 message += `Profit: ${arb.profitPercent}%\n`;
@@ -168,7 +260,7 @@ class WebDashboard {
         }
 
         if (highValueEV.length > 0) {
-            message += `*${highValueEV.length} +EV Opportunities*\n\n`;
+            message += `*${highValueEV.length} High-Value +EV Opportunities*\n\n`;
             for (const ev of highValueEV.slice(0, 3)) {
                 message += `💰 ${ev.outcome} @ ${ev.bookmaker}\n`;
                 message += `Odds: ${ev.odds} | EV: +${ev.evPercent}%\n\n`;
