@@ -21,6 +21,36 @@ class OddsFetcher {
     }
 
     /**
+     * Clean up old cache files, keeping only the most recent N files
+     */
+    async cleanupCache(maxFiles = 10) {
+        try {
+            const files = await fs.readdir(this.cacheDir);
+            const dataFiles = files
+                .filter(f => f.startsWith('data_') && f.endsWith('.json'))
+                .map(f => ({
+                    name: f,
+                    path: path.join(this.cacheDir, f),
+                    time: parseInt(f.match(/data_(\d+)\.json/)?.[1] || 0)
+                }))
+                .sort((a, b) => b.time - a.time);
+
+            if (dataFiles.length > maxFiles) {
+                const toDelete = dataFiles.slice(maxFiles);
+                for (const file of toDelete) {
+                    await fs.unlink(file.path);
+                    console.log(`Cleaned up old cache: ${file.name}`);
+                }
+                return toDelete.length;
+            }
+            return 0;
+        } catch (e) {
+            console.error('Cache cleanup error:', e.message);
+            return 0;
+        }
+    }
+
+    /**
      * Fetch odds from The Odds API (covers Unibet, Betclic, etc.)
      */
     async fetchOddsAPI(sport, market = 'h2h') {
@@ -306,6 +336,12 @@ class OddsFetcher {
         // Also save as latest
         const latestFile = path.join(this.cacheDir, 'latest.json');
         await fs.writeFile(latestFile, JSON.stringify(data, null, 2));
+
+        // Clean up old cache files
+        const cleaned = await this.cleanupCache(10);
+        if (cleaned > 0) {
+            console.log(`Cleaned up ${cleaned} old cache files`);
+        }
 
         console.log(`Data saved to ${cacheFile}`);
         console.log(`- Odds API events: ${allOddsData.length}`);
