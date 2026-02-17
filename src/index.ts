@@ -2,6 +2,8 @@ import OddsAggregationEngine, { BookmakerConfig } from './odds-aggregation-engin
 import { createServer } from './web/server.js';
 import logger from './utils/logger.js';
 import { metricsMiddleware, register } from './utils/metrics.js';
+import { SlippageProtector, getSlippageProtector } from './slippage-protector.js';
+import { SlippageProtectionWebSocket } from './slippage-protection-websocket.js';
 
 /**
  * Surebet Detector - Real-time Odds Aggregation Service
@@ -113,6 +115,25 @@ async function main() {
   const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
   const engine = new OddsAggregationEngine(redisUrl);
 
+  // Initialize slippage protector
+  const slippageConfig = {
+    maxSlippagePercent: parseFloat(process.env.SLIPPAGE_MAX_PERCENT || '0.5'),
+    criticalSlippagePercent: parseFloat(process.env.SLIPPAGE_CRITICAL_PERCENT || '2.0'),
+    checkWindowMs: parseInt(process.env.SLIPPAGE_CHECK_WINDOW_MS || '5000'),
+    autoRetry: process.env.SLIPPAGE_AUTO_RETRY !== 'false',
+    maxRetries: parseInt(process.env.SLIPPAGE_MAX_RETRIES || '3'),
+    retryDelayMs: parseInt(process.env.SLIPPAGE_RETRY_DELAY_MS || '1000'),
+    detectPriceImprovement: process.env.SLIPPAGE_DETECT_IMPROVEMENT !== 'false'
+  };
+  
+  const slippageProtector = getSlippageProtector(slippageConfig);
+  
+  // Start slippage protection WebSocket server
+  const slippageWsPort = parseInt(process.env.SLIPPAGE_WS_PORT || '8081');
+  const slippageWs = new SlippageProtectionWebSocket(slippageProtector, slippageWsPort);
+  
+  logger.info('Slippage protection initialized', { config: slippageConfig, wsPort: slippageWsPort });
+
   // Register event handlers
   engine.on('engine:started', () => {
     logger.info('Odds aggregation engine started');
@@ -134,8 +155,22 @@ async function main() {
     logger.warn(`Bookmaker disconnected: ${id} (${reason})`);
   });
 
-  engine.on('odds:updated', ({ bookmaker, count }) => {
+  engine.on('odds:updated', ({ bookmaker, count, odds }) => {
     logger.debug(`Received ${count} odds updates from ${bookmaker}`);
+    
+    // Record odds for slippage protection
+    if (odds && Array.isArray(odds)) {
+      odds.forEach((odd: any) => {
+        slippageProtector.recordOdds({
+          bookmaker: odd.bookmaker || bookmaker,
+          market: odd.market,
+          selection: odd.selection,
+          odds: odd.odds,
+          timestamp: Date.now(),
+          liquidity: odd.liquidity
+        });
+      });
+    }
   });
 
   engine.on('odds:aggregated', (data) => {
@@ -169,12 +204,16 @@ async function main() {
   // Graceful shutdown
   process.on('SIGTERM', async () => {
     logger.info('SIGTERM received, shutting down gracefully');
+    await slippageWs.close();
+    slippageProtector.dispose();
     await engine.stop();
     process.exit(0);
   });
 
   process.on('SIGINT', async () => {
     logger.info('SIGINT received, shutting down gracefully');
+    await slippageWs.close();
+    slippageProtector.dispose();
     await engine.stop();
     process.exit(0);
   });
