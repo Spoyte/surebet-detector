@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration - Surebet Detector</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="config-styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1>⚙️ Configuration</h1>
+                <nav class="nav">
+                    <a href="/" class="nav-link">← Dashboard</a>
+                    <a href="/analytics" class="nav-link">Analytics</a>
+                    <a href="/settlements" class="nav-link">Settlements</a>
+                </nav>
+            </div>
+        </header>
+
+        <main class="config-main">
+            <!-- Config Header -->
+            <div class="config-header">
+                <div class="config-actions">
+                    <button id="save-config" class="btn btn-primary">💾 Save Changes</button>
+                    <button id="reset-config" class="btn btn-secondary">↩️ Reset to Defaults</button>
+                    <button id="export-config" class="btn btn-secondary">📥 Export</button>
+                    <button id="import-config" class="btn btn-secondary">📤 Import</button>
+                    <input type="file" id="import-file" accept=".json" style="display: none;">
+                </div>
+                <div id="config-status" class="config-status"></div>
+            </div>
+
+            <!-- Validation Alerts -->
+            <div id="validation-alerts" class="validation-alerts"></div>
+
+            <div class="config-layout">
+                <!-- Sidebar Navigation -->
+                <aside class="config-sidebar">
+                    <nav class="config-nav" id="config-nav">
+                        <!-- Sections will be populated by JS -->
+                    </nav>
+                </aside>
+
+                <!-- Main Config Content -->
+                <div class="config-content">
+                    <div id="config-sections">
+                        <!-- Sections will be populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-title">Confirm Action</h3>
+            <p id="modal-message">Are you sure?</p>
+            <div class="modal-actions">
+                <button id="modal-cancel" class="btn btn-secondary">Cancel</button>
+                <button id="modal-confirm" class="btn btn-danger">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="config-app.js"></script>
+</body>
+</html>

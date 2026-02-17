@@ -1,4 +1,6 @@
 const AlertConfig = require('./alert-config.js');
+const { OpportunityQualityScorer } = require('./opportunity-quality-scorer.js');
+const { BookmakerHealthMonitor } = require('./bookmaker-health-monitor.js');
 
 /**
  * Enhanced analyzer with better filtering and categorization
@@ -7,10 +9,19 @@ class OpportunityAnalyzer {
     constructor(config) {
         this.config = config;
         this.alertConfig = new AlertConfig();
+        this.qualityScorer = new OpportunityQualityScorer({ dataDir: config.DATA_DIR });
+        this.healthMonitor = new BookmakerHealthMonitor({ dataDir: config.DATA_DIR });
         this.MIN_EV_THRESHOLD = parseFloat(config.MIN_EV_THRESHOLD) || 5;
         this.MAX_EV_DISPLAY = 100; // Cap display at 100% to avoid unrealistic values
         this.SUSPICIOUS_ODDS_RATIO = 2.5; // Flag if odds >2.5x Pinnacle
         this.PINNACLE_CONSENSUS_THRESHOLD = 1.5; // Flag Pinnacle if >1.5x consensus median
+        this.qualityScoringEnabled = config.QUALITY_SCORING_ENABLED !== 'false';
+    }
+    
+    async init() {
+        await this.qualityScorer.init();
+        await this.healthMonitor.init();
+        return this;
     }
 
     /**
@@ -23,7 +34,8 @@ class OpportunityAnalyzer {
             arbitrage: [],
             positiveEV: [],
             suspicious: [], // New: track suspicious odds for review
-            promotions: []
+            promotions: [],
+            qualitySummary: null
         };
 
         // Analyze Odds API data
@@ -48,9 +60,38 @@ class OpportunityAnalyzer {
         opportunities.arbitrage.push(...crossMarketOpps.arbitrage);
         opportunities.positiveEV.push(...crossMarketOpps.positiveEV);
 
-        // Sort by value
-        opportunities.arbitrage.sort((a, b) => b.profitPercent - a.profitPercent);
-        opportunities.positiveEV.sort((a, b) => b.evPercent - a.evPercent);
+        // Apply quality scoring if enabled
+        if (this.qualityScoringEnabled) {
+            // Score arbitrage opportunities
+            if (opportunities.arbitrage.length > 0) {
+                opportunities.arbitrage = this.qualityScorer.scoreAndRankOpportunities(
+                    opportunities.arbitrage, 
+                    'arbitrage'
+                );
+            }
+            
+            // Score +EV opportunities
+            if (opportunities.positiveEV.length > 0) {
+                opportunities.positiveEV = this.qualityScorer.scoreAndRankOpportunities(
+                    opportunities.positiveEV, 
+                    'ev'
+                );
+            }
+            
+            // Add quality summary
+            opportunities.qualitySummary = {
+                arbitrage: this.qualityScorer.getQualityDistribution(opportunities.arbitrage, 'arbitrage'),
+                ev: this.qualityScorer.getQualityDistribution(opportunities.positiveEV, 'ev')
+            };
+        }
+
+        // Sort by value (or quality score if enabled)
+        if (this.qualityScoringEnabled) {
+            // Already sorted by quality scorer
+        } else {
+            opportunities.arbitrage.sort((a, b) => b.profitPercent - a.profitPercent);
+            opportunities.positiveEV.sort((a, b) => b.evPercent - a.evPercent);
+        }
 
         // Filter out extreme values from main display
         opportunities.positiveEV = opportunities.positiveEV.filter(ev => ev.evPercent <= this.MAX_EV_DISPLAY);

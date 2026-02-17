@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <title>Bet Settlement Tracker — Surebet Detector</title>
+    
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .settlement-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+        
+        .settlement-tab {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .settlement-tab:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .settlement-tab.active {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+        }
+        
+        .stat-card .label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card .value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .stat-card .value.positive { color: var(--success); }
+        .stat-card .value.negative { color: var(--danger); }
+        .stat-card .value.neutral { color: var(--text-primary); }
+        
+        .stat-card .sub {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+        
+        .bets-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        
+        .bets-table th,
+        .bets-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .bets-table th {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .bets-table tr:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        .bet-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .bet-status.pending {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+        }
+        
+        .bet-status.settled {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+        
+        .bet-status.cancelled {
+            background: rgba(107, 114, 128, 0.15);
+            color: #6b7280;
+        }
+        
+        .bet-outcome {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .bet-outcome.win {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+        
+        .bet-outcome.loss {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+        }
+        
+        .bet-outcome.push {
+            background: rgba(107, 114, 128, 0.15);
+            color: #6b7280;
+        }
+        
+        .bet-outcome.void {
+            background: rgba(139, 92, 246, 0.15);
+            color: #8b5cf6;
+        }
+        
+        .profit-cell {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+        
+        .profit-cell.positive { color: var(--success); }
+        .profit-cell.negative { color: var(--danger); }
+        .profit-cell.neutral { color: var(--text-secondary); }
+        
+        .action-btn {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .action-btn.settle {
+            background: var(--success);
+            color: white;
+        }
+        
+        .action-btn.cancel {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .action-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .reconciliation-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .reconciliation-card h3 {
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+        
+        .reconciliation-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .reconciliation-row:last-child {
+            border-bottom: none;
+        }
+        
+        .reconciliation-row .label {
+            color: var(--text-secondary);
+        }
+        
+        .reconciliation-row .value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+        
+        .attention-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.25rem 0.625rem;
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+        
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 500px;
+            transform: scale(0.95);
+            transition: transform 0.3s;
+        }
+        
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+        
+        .modal h3 {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.625rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+        
+        .time-filter {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .time-filter button {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        
+        .time-filter button.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 2rem;
+        }
+        
+        .recommendation-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .recommendation-item.warning {
+            border-left: 3px solid #f59e0b;
+        }
+        
+        .recommendation-item.positive {
+            border-left: 3px solid #10b981;
+        }
+        
+        .recommendation-item.info {
+            border-left: 3px solid var(--accent);
+        }
+        
+        .recommendation-icon {
+            font-size: 1.25rem;
+        }
+        
+        .recommendation-content {
+            flex: 1;
+        }
+        
+        .recommendation-content .title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .recommendation-content .message {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-brand">
+            <span class="logo">📊</span>
+            <span class="name">Surebet Detector</span>
+        </div>
+        <div class="nav-stats">
+            <a href="/" class="btn btn-secondary" style="margin-right: 0.5rem;">← Dashboard</a>
+            <a href="/analytics" class="btn btn-secondary" style="margin-right: 0.5rem;">📈 Analytics</a>
+        </div>
+    </nav>
+
+    <main class="main" style="padding-top: 2rem;">
+        <div class="section-header" style="margin-bottom: 2rem;">
+            <h1>🎯 Bet Settlement Tracker</h1>
+            <p>Track bet outcomes, reconcile actual vs expected results, monitor P&L</p>
+        </div>
+
+        <!-- Statistics Overview -->
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="label">Total Settled</div>
+                <div class="value neutral" id="stat-settled">—</div>
+                <div class="sub">Last 30 days</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Pending Bets</div>
+                <div class="value neutral" id="stat-pending">—</div>
+                <div class="sub">Awaiting settlement</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Profit</div>
+                <div class="value" id="stat-profit">—</div>
+                <div class="sub">Actual P&L</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Win Rate</div>
+                <div class="value neutral" id="stat-winrate">—</div>
+                <div class="sub">% of winning bets</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">ROI</div>
+                <div class="value" id="stat-roi">—</div>
+                <div class="sub">Return on investment</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">EV Accuracy</div>
+                <div class="value neutral" id="stat-ev">—</div>
+                <div class="sub">Actual vs Expected</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="settlement-tabs">
+            <button class="settlement-tab active" onclick="showTab('pending')">⏳ Pending Bets</button>
+            <button class="settlement-tab" onclick="showTab('settled')">✅ Settled Bets</button>
+            <button class="settlement-tab" onclick="showTab('reconciliation')">📊 Reconciliation</button>
+            <button class="settlement-tab" onclick="showTab('attention')">⚠️ Needs Attention</button>
+        </div>
+
+        <!-- Pending Bets Tab -->
+        <div id="tab-pending" class="tab-content active">
+            <div class="time-filter">
+                <button class="active" onclick="setTimeRange('30d')">30 Days</button>
+                <button onclick="setTimeRange('7d')">7 Days</button>
+                <button onclick="setTimeRange('90d')">90 Days</button>
+            </div>
+            <div id="pending-bets-container">
+                <div class="loading">Loading pending bets...</div>
+            </div>
+        </div>
+
+        <!-- Settled Bets Tab -->
+        <div id="tab-settled" class="tab-content">
+            <div class="time-filter">
+                <button class="active" onclick="setTimeRange('30d')">30 Days</button>
+                <button onclick="setTimeRange('7d')">7 Days</button>
+                <button onclick="setTimeRange('90d')">90 Days</button>
+            </div>
+            <div id="settled-bets-container">
+                <div class="loading">Loading settled bets...</div>
+            </div>
+        </div>
+
+        <!-- Reconciliation Tab -->
+        <div id="tab-reconciliation" class="tab-content">
+            <div class="time-filter">
+                <button class="active" onclick="setTimeRange('30d')">30 Days</button>
+                <button onclick="setTimeRange('7d')">7 Days</button>
+                <button onclick="setTimeRange('90d')">90 Days</button>
+            </div>
+            <div id="reconciliation-container">
+                <div class="loading">Loading reconciliation data...</div>
+            </div>
+        </div>
+
+        <!-- Attention Tab -->
+        <div id="tab-attention" class="tab-content">
+            <div id="attention-container">
+                <div class="loading">Loading bets needing attention...</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Settle Bet Modal -->
+    <div class="modal-overlay" id="settle-modal">
+        <div class="modal">
+            <h3>💰 Settle Bet</h3>
+            <form id="settle-form">
+                <input type="hidden" id="settle-bet-id">
+                <div class="form-group">
+                    <label>Bet</label>
+                    <input type="text" id="settle-bet-display" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Outcome</label>
+                    <select id="settle-outcome" required>
+                        <option value="win">Win</option>
+                        <option value="loss">Loss</option>
+                        <option value="push">Push (Refund)</option>
+                        <option value="void">Void</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Actual Profit/Loss</label>
+                    <input type="number" id="settle-profit" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Notes (optional)</label>
+                    <textarea id="settle-notes" rows="2"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Settle Bet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cancel Bet Modal -->
+    <div class="modal-overlay" id="cancel-modal">
+        <div class="modal">
+            <h3>🚫 Cancel Bet</h3>
+            <form id="cancel-form">
+                <input type="hidden" id="cancel-bet-id">
+                <div class="form-group">
+                    <label>Bet</label>
+                    <input type="text" id="cancel-bet-display" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Reason (optional)</label>
+                    <textarea id="cancel-reason" rows="3"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Confirm Cancellation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentTimeRange = '30d';
+        let currentTab = 'pending';
+        let pendingBets = [];
+        let settledBets = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadPendingBets();
+            loadSettledBets();
+            loadAttentionBets();
+            loadReconciliation();
+        });
+
+        // Tab switching
+        function showTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.settlement-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            
+            // Refresh data when switching tabs
+            if (tab === 'pending') loadPendingBets();
+            if (tab === 'settled') loadSettledBets();
+            if (tab === 'attention') loadAttentionBets();
+            if (tab === 'reconciliation') loadReconciliation();
+        }
+
+        // Time range switching
+        function setTimeRange(range) {
+            currentTimeRange = range;
+            event.target.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            loadStats();
+            if (currentTab === 'settled') loadSettledBets();
+            if (currentTab === 'reconciliation') loadReconciliation();
+        }
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch(`/api/settlements/stats?range=${currentTimeRange}`);
+                const stats = await response.json();
+                
+                document.getElementById('stat-settled').textContent = stats.totalSettled;
+                document.getElementById('stat-pending').textContent = stats.totalPending;
+                document.getElementById('stat-profit').textContent = formatCurrency(stats.totalProfit);
+                document.getElementById('stat-profit').className = 'value ' + (stats.totalProfit >= 0 ? 'positive' : 'negative');
+                document.getElementById('stat-winrate').textContent = stats.winRate.toFixed(1) + '%';
+                document.getElementById('stat-roi').textContent = stats.roi.toFixed(2) + '%';
+                document.getElementById('stat-roi').className = 'value ' + (stats.roi >= 0 ? 'positive' : 'negative');
+                document.getElementById('stat-ev').textContent = stats.evAccuracy.toFixed(1) + '%';
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        // Load pending bets
+        async function loadPendingBets() {
+            try {
+                const response = await fetch('/api/settlements/bets?status=pending');
+                const data = await response.json();
+                pendingBets = data.bets;
+                renderPendingBets(pendingBets);
+            } catch (error) {
+                console.error('Failed to load pending bets:', error);
+                document.getElementById('pending-bets-container').innerHTML = '<div class="empty-state">Failed to load pending bets</div>';
+            }
+        }
+
+        // Render pending bets table
+        function renderPendingBets(bets) {
+            const container = document.getElementById('pending-bets-container');
+            
+            if (bets.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🎉</div>
+                        <h3>No Pending Bets</h3>
+                        <p>All bets have been settled. Time to place some new ones!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const html = `
+                <table class="bets-table">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Bookmaker</th>
+                            <th>Selection</th>
+                            <th>Odds</th>
+                            <th>Stake</th>
+                            <th>Expected Profit</th>
+                            <th>Placed</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${bets.map(bet => `
+                            <tr>
+                                <td><strong>${escapeHtml(bet.event)}</strong><br><small>${escapeHtml(bet.sport)} • ${escapeHtml(bet.market)}</small></td>
+                                <td>${escapeHtml(bet.bookmaker)}</td>
+                                <td>${escapeHtml(bet.selection)}</td>
+                                <td>${bet.odds}</td>
+                                <td>€${bet.stake.toFixed(2)}</td>
+                                <td class="profit-cell positive">+€${bet.expectedProfit.toFixed(2)}</td>
+                                <td>${formatDate(bet.placedAt)}</td>
+                                <td><span class="bet-status pending">⏳ Pending</span></td>
+                                <td>
+                                    <button class="action-btn settle" onclick="openSettleModal('${bet.id}')">Settle</button>
+                                    <button class="action-btn cancel" onclick="openCancelModal('${bet.id}')">Cancel</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        // Load settled bets
+        async function loadSettledBets() {
+            try {
+                const response = await fetch(`/api/settlements/bets?status=settled&range=${currentTimeRange}`);
+                const data = await response.json();
+                settledBets = data.bets;
+                renderSettledBets(settledBets);
+            } catch (error) {
+                console.error('Failed to load settled bets:', error);
+                document.getElementById('settled-bets-container').innerHTML = '<div class="empty-state">Failed to load settled bets</div>';
+            }
+        }
+
+        // Render settled bets table
+        function renderSettledBets(bets) {
+            const container = document.getElementById('settled-bets-container');
+            
+            if (bets.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📊</div>
+                        <h3>No Settled Bets</h3>
+                        <p>No bets have been settled in this time period.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const html = `
+                <table class="bets-table">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Bookmaker</th>
+                            <th>Selection</th>
+                            <th>Stake</th>
+                            <th>Outcome</th>
+                            <th>Actual P&L</th>
+                            <th>Expected</th>
+                            <th>Variance</th>
+                            <th>Settled</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${bets.map(bet => {
+                            const variance = (bet.actualProfit || 0) - (bet.expectedProfit || 0);
+                            return `
+                            <tr>
+                                <td><strong>${escapeHtml(bet.event)}</strong><br><small>${escapeHtml(bet.sport)}</small></td>
+                                <td>${escapeHtml(bet.bookmaker)}</td>
+                                <td>${escapeHtml(bet.selection)}</td>
+                                <td>€${bet.stake.toFixed(2)}</td>
+                                <td><span class="bet-outcome ${bet.outcome}">${getOutcomeEmoji(bet.outcome)} ${bet.outcome}</span></td>
+                                <td class="profit-cell ${(bet.actualProfit || 0) >= 0 ? 'positive' : 'negative'}">
+                                    ${(bet.actualProfit || 0) >= 0 ? '+' : ''}€${(bet.actualProfit || 0).toFixed(2)}
+                                </td>
+                                <td class="profit-cell positive">+€${(bet.expectedProfit || 0).toFixed(2)}</td>
+                                <td class="profit-cell ${variance >= 0 ? 'positive' : 'negative'}">
+                                    ${variance >= 0 ? '+' : ''}€${variance.toFixed(2)}
+                                </td>
+                                <td>${formatDate(bet.settledAt)}</td>
+                            </tr>
+                        `}).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        // Load bets needing attention
+        async function loadAttentionBets() {
+            try {
+                const response = await fetch('/api/settlements/attention?maxAge=24');
+                const data = await response.json();
+                renderAttentionBets(data.bets);
+            } catch (error) {
+                console.error('Failed to load attention bets:', error);
+                document.getElementById('attention-container').innerHTML = '<div class="empty-state">Failed to load attention data</div>';
+            }
+        }
+
+        // Render attention bets
+        function renderAttentionBets(bets) {
+            const container = document.getElementById('attention-container');
+            
+            if (bets.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✅</div>
+                        <h3>All Good!</h3>
+                        <p>No bets need attention. All pending bets are within normal timeframes.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const html = `
+                <div style="margin-bottom: 1rem;">
+                    <span class="attention-badge">⚠️ ${bets.length} bets need attention</span>
+                </div>
+                <table class="bets-table">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Bookmaker</th>
+                            <th>Selection</th>
+                            <th>Stake</th>
+                            <th>Hours Pending</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${bets.map(bet => `
+                            <tr>
+                                <td><strong>${escapeHtml(bet.event)}</strong><br><small>${escapeHtml(bet.sport)}</small></td>
+                                <td>${escapeHtml(bet.bookmaker)}</td>
+                                <td>${escapeHtml(bet.selection)}</td>
+                                <td>€${bet.stake.toFixed(2)}</td>
+                                <td><span class="attention-badge">${bet.hoursPending}h</span></td>
+                                <td>
+                                    <button class="action-btn settle" onclick="openSettleModal('${bet.id}')">Settle</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        // Load reconciliation data
+        async function loadReconciliation() {
+            try {
+                const response = await fetch(`/api/settlements/reconciliation?range=${currentTimeRange}`);
+                const data = await response.json();
+                renderReconciliation(data);
+            } catch (error) {
+                console.error('Failed to load reconciliation:', error);
+                document.getElementById('reconciliation-container').innerHTML = '<div class="empty-state">Failed to load reconciliation data</div>';
+            }
+        }
+
+        // Render reconciliation
+        function renderReconciliation(data) {
+            const container = document.getElementById('reconciliation-container');
+            
+            const summary = data.summary;
+            const variance = summary.totalActualProfit - summary.totalExpectedProfit;
+            const variancePercent = summary.totalExpectedProfit > 0 
+                ? (variance / summary.totalExpectedProfit * 100).toFixed(1)
+                : 0;
+            
+            let html = `
+                <div class="reconciliation-card">
+                    <h3>📊 Summary</h3>
+                    <div class="reconciliation-row">
+                        <span class="label">Total Expected Profit</span>
+                        <span class="value positive">+€${summary.totalExpectedProfit.toFixed(2)}</span>
+                    </div>
+                    <div class="reconciliation-row">
+                        <span class="label">Total Actual Profit</span>
+                        <span class="value ${summary.totalActualProfit >= 0 ? 'positive' : 'negative'}">
+                            ${summary.totalActualProfit >= 0 ? '+' : ''}€${summary.totalActualProfit.toFixed(2)}
+                        </span>
+                    </div>
+                    <div class="reconciliation-row">
+                        <span class="label">Variance</span>
+                        <span class="value ${variance >= 0 ? 'positive' : 'negative'}">
+                            ${variance >= 0 ? '+' : ''}€${variance.toFixed(2)} (${variancePercent >= 0 ? '+' : ''}${variancePercent}%)
+                        </span>
+                    </div>
+                    <div class="reconciliation-row">
+                        <span class="label">EV Accuracy</span>
+                        <span class="value neutral">${data.accuracy.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+            
+            // By type breakdown
+            if (data.byType && Object.keys(data.byType).length > 0) {
+                html += `
+                    <div class="reconciliation-card">
+                        <h3>📈 Performance by Bet Type</h3>
+                `;
+                
+                for (const [type, typeData] of Object.entries(data.byType)) {
+                    const typeVariance = typeData.actual - typeData.expected;
+                    html += `
+                        <div class="reconciliation-row">
+                            <span class="label">${type} (${typeData.bets} bets)</span>
+                            <span class="value">
+                                Expected: €${typeData.expected.toFixed(2)} | 
+                                Actual: <span class="${typeData.actual >= 0 ? 'positive' : 'negative'}">
+                                    ${typeData.actual >= 0 ? '+' : ''}€${typeData.actual.toFixed(2)}
+                                </span> | 
+                                Var: <span class="${typeVariance >= 0 ? 'positive' : 'negative'}">
+                                    ${typeVariance >= 0 ? '+' : ''}€${typeVariance.toFixed(2)}
+                                </span>
+                            </span>
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+            }
+            
+            // Recommendations
+            if (data.recommendations && data.recommendations.length > 0) {
+                html += `
+                    <div class="reconciliation-card">
+                        <h3>💡 Recommendations</h3>
+                `;
+                
+                for (const rec of data.recommendations) {
+                    const icon = rec.type === 'warning' ? '⚠️' : rec.type === 'positive' ? '✅' : 'ℹ️';
+                    html += `
+                        <div class="recommendation-item ${rec.type}">
+                            <span class="recommendation-icon">${icon}</span>
+                            <div class="recommendation-content">
+                                <div class="title">${rec.category}</div>
+                                <div class="message">${rec.message}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // Modal functions
+        function openSettleModal(betId) {
+            const bet = pendingBets.find(b => b.id === betId);
+            if (!bet) return;
+            
+            document.getElementById('settle-bet-id').value = betId;
+            document.getElementById('settle-bet-display').value = `${bet.event} - ${bet.selection} @ ${bet.bookmaker}`;
+            document.getElementById('settle-profit').value = bet.expectedProfit.toFixed(2);
+            document.getElementById('settle-modal').classList.add('active');
+        }
+
+        function openCancelModal(betId) {
+            const bet = pendingBets.find(b => b.id === betId);
+            if (!bet) return;
+            
+            document.getElementById('cancel-bet-id').value = betId;
+            document.getElementById('cancel-bet-display').value = `${bet.event} - ${bet.selection} @ ${bet.bookmaker}`;
+            document.getElementById('cancel-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+        }
+
+        // Form submissions
+        document.getElementById('settle-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const betId = document.getElementById('settle-bet-id').value;
+            const outcome = document.getElementById('settle-outcome').value;
+            const actualProfit = parseFloat(document.getElementById('settle-profit').value);
+            const notes = document.getElementById('settle-notes').value;
+            
+            try {
+                const response = await fetch(`/api/settlements/bets/${betId}/settle`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ outcome, actualProfit, notes })
+                });
+                
+                if (response.ok) {
+                    closeModal();
+                    loadStats();
+                    loadPendingBets();
+                    loadSettledBets();
+                    loadAttentionBets();
+                    loadReconciliation();
+                } else {
+                    alert('Failed to settle bet');
+                }
+            } catch (error) {
+                console.error('Error settling bet:', error);
+                alert('Error settling bet');
+            }
+        });
+
+        document.getElementById('cancel-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const betId = document.getElementById('cancel-bet-id').value;
+            const reason = document.getElementById('cancel-reason').value;
+            
+            try {
+                const response = await fetch(`/api/settlements/bets/${betId}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason })
+                });
+                
+                if (response.ok) {
+                    closeModal();
+                    loadStats();
+                    loadPendingBets();
+                    loadAttentionBets();
+                } else {
+                    alert('Failed to cancel bet');
+                }
+            } catch (error) {
+                console.error('Error cancelling bet:', error);
+                alert('Error cancelling bet');
+            }
+        });
+
+        // Utility functions
+        function formatCurrency(value) {
+            if (value === undefined || value === null) return '—';
+            const sign = value >= 0 ? '+' : '';
+            return `${sign}€${value.toFixed(2)}`;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '—';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-GB', { 
+                day: '2-digit', 
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function getOutcomeEmoji(outcome) {
+            const emojis = {
+                win: '✅',
+                loss: '❌',
+                push: '🔄',
+                void: '⛔'
+            };
+            return emojis[outcome] || '❓';
+        }
+
+        // Close modal on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) closeModal();
+            });
+        });
+    </script>
+</body>
+</html>

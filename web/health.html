@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookmaker Health Monitor | Surebet Detector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 30px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            border: 1px solid #334155;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            background: linear-gradient(90deg, #22d3ee, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+        }
+        
+        .card h3 {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+        
+        .card .value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .status-card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .status-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .status-header h4 {
+            font-size: 1.125rem;
+            color: #f1f5f9;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-excellent { background: #065f46; color: #34d399; }
+        .status-good { background: #1e40af; color: #60a5fa; }
+        .status-fair { background: #92400e; color: #fbbf24; }
+        .status-poor { background: #991b1b; color: #f87171; }
+        .status-critical { background: #7f1d1d; color: #ef4444; }
+        .status-unknown { background: #475569; color: #94a3b8; }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .metric {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        
+        .metric-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        
+        .metric-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        
+        .alerts {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            margin-bottom: 24px;
+        }
+        
+        .alerts h3 {
+            font-size: 1.125rem;
+            margin-bottom: 16px;
+            color: #f1f5f9;
+        }
+        
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .alert:last-child {
+            margin-bottom: 0;
+        }
+        
+        .alert-critical { background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; }
+        .alert-warning { background: rgba(251, 191, 36, 0.1); border-left: 4px solid #fbbf24; }
+        .alert-info { background: rgba(96, 165, 250, 0.1); border-left: 4px solid #60a5fa; }
+        
+        .alert-icon {
+            font-size: 1.25rem;
+        }
+        
+        .alert-content {
+            flex: 1;
+        }
+        
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        
+        .alert-message {
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+        
+        .distribution {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+        }
+        
+        .distribution h3 {
+            font-size: 1.125rem;
+            margin-bottom: 16px;
+            color: #f1f5f9;
+        }
+        
+        .dist-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .dist-label {
+            width: 100px;
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+        
+        .dist-track {
+            flex: 1;
+            height: 24px;
+            background: #0f172a;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 0 12px;
+        }
+        
+        .dist-fill {
+            height: 100%;
+            border-radius: 12px;
+            transition: width 0.3s ease;
+        }
+        
+        .dist-count {
+            width: 40px;
+            text-align: right;
+            font-weight: 600;
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(135deg, #22d3ee, #818cf8);
+            color: #0f172a;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        .refresh-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .refresh-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .last-updated {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.875rem;
+            margin-top: 24px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            color: #f87171;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏥 Bookmaker Health Monitor</h1>
+            <p class="subtitle">Real-time API health monitoring and performance tracking</p>
+        </header>
+        
+        <div id="error-container"></div>
+        
+        <div class="summary-cards" id="summary">
+            <div class="card">
+                <h3>Total Bookmakers</h3>
+                <div class="value" id="total-bookmakers">-</div>
+            </div>
+            <div class="card">
+                <h3>Healthy APIs</h3>
+                <div class="value" id="healthy-apis">-</div>
+            </div>
+            <div class="card">
+                <h3>Avg Response Time</h3>
+                <div class="value" id="avg-response">-</div>
+            </div>
+            <div class="card">
+                <h3>Active Alerts</h3>
+                <div class="value" id="active-alerts">-</div>
+            </div>
+        </div>
+        
+        <div class="distribution" id="distribution-section">
+            <h3>Health Distribution</h3>
+            <div id="distribution-bars"></div>
+        </div>
+        
+        <div class="alerts" id="alerts-section">
+            <h3>Active Alerts</h3>
+            <div id="alerts-list">
+                <div class="loading">Loading alerts...</div>
+            </div>
+        </div>
+        
+        <div class="status-grid" id="status-grid">
+            <div class="loading">Loading health status...</div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 24px;">
+            <button class="refresh-btn" id="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+        </div>
+        
+        <p class="last-updated" id="last-updated"></p>
+    </div>
+    
+    <script>
+        const statusColors = {
+            excellent: '#34d399',
+            good: '#60a5fa',
+            fair: '#fbbf24',
+            poor: '#f87171',
+            critical: '#ef4444',
+            unknown: '#94a3b8'
+        };
+        
+        async function loadData() {
+            const btn = document.getElementById('refresh-btn');
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            
+            try {
+                // Load summary
+                const summaryRes = await fetch('/api/health/summary');
+                if (!summaryRes.ok) throw new Error('Failed to load summary');
+                const summary = await summaryRes.json();
+                
+                document.getElementById('total-bookmakers').textContent = summary.total;
+                document.getElementById('healthy-apis').textContent = summary.byStatus.excellent + summary.byStatus.good;
+                document.getElementById('avg-response').textContent = summary.avgResponseTime + 'ms';
+                document.getElementById('active-alerts').textContent = summary.activeAlerts;
+                
+                // Load distribution
+                const total = summary.total || 1;
+                const distHtml = Object.entries(summary.byStatus)
+                    .filter(([_, count]) => count > 0)
+                    .map(([status, count]) => `
+                        <div class="dist-bar">
+                            <div class="dist-label">${status.charAt(0).toUpperCase() + status.slice(1)}</div>
+                            <div class="dist-track">
+                                <div class="dist-fill" style="width: ${(count / total) * 100}%; background: ${statusColors[status] || '#64748b'}"></div>
+                            </div>
+                            <div class="dist-count">${count}</div>
+                        </div>
+                    `).join('');
+                document.getElementById('distribution-bars').innerHTML = distHtml || '<p style="color: #64748b;">No data available</p>';
+                
+                // Load health status
+                const statusRes = await fetch('/api/health/status');
+                if (!statusRes.ok) throw new Error('Failed to load status');
+                const status = await statusRes.json();
+                
+                const statusHtml = Object.entries(status).map(([name, data]) => {
+                    const current = data.current || {};
+                    const stats = data.stats || {};
+                    const alerts = data.activeAlerts || [];
+                    
+                    return `
+                        <div class="status-card">
+                            <div class="status-header">
+                                <h4>${name}</h4>
+                                <span class="status-badge status-${current.status || 'unknown'}">${current.status || 'Unknown'}</span>
+                            </div>
+                            <div class="metrics">
+                                <div class="metric">
+                                    <div class="metric-label">Response Time</div>
+                                    <div class="metric-value">${Math.round(current.responseTime || 0)}ms</div>
+                                </div>
+                                <div class="metric">
+                                    <div class="metric-label">Uptime</div>
+                                    <div class="metric-value">${(stats.uptimePercent || 100).toFixed(1)}%</div>
+                                </div>
+                                <div class="metric">
+                                    <div class="metric-label">Error Rate</div>
+                                    <div class="metric-value">${(current.errorRate || 0).toFixed(1)}%</div>
+                                </div>
+                                <div class="metric">
+                                    <div class="metric-label">Data Freshness</div>
+                                    <div class="metric-value">${Math.round(current.dataFreshness || 0)}m</div>
+                                </div>
+                            </div>
+                            ${alerts.length > 0 ? `
+                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155;">
+                                    ${alerts.map(a => `
+                                        <div style="font-size: 0.875rem; color: ${a.severity === 'critical' ? '#f87171' : a.severity === 'warning' ? '#fbbf24' : '#60a5fa'}; margin-bottom: 4px;">
+                                            ⚠️ ${a.message}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+                
+                document.getElementById('status-grid').innerHTML = statusHtml || '<p style="color: #64748b; text-align: center;">No bookmakers configured</p>';
+                
+                // Collect all alerts
+                const allAlerts = Object.entries(status).flatMap(([name, data]) => 
+                    (data.activeAlerts || []).map(a => ({ ...a, bookmaker: name }))
+                );
+                
+                if (allAlerts.length > 0) {
+                    document.getElementById('alerts-list').innerHTML = allAlerts.map(a => `
+                        <div class="alert alert-${a.severity}">
+                            <div class="alert-icon">${a.severity === 'critical' ? '🔴' : a.severity === 'warning' ? '🟡' : '🔵'}</div>
+                            <div class="alert-content">
+                                <div class="alert-title">${a.bookmaker} - ${a.type}</div>
+                                <div class="alert-message">${a.message}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    document.getElementById('alerts-list').innerHTML = '<p style="color: #64748b;">No active alerts</p>';
+                }
+                
+                document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleString();
+                document.getElementById('error-container').innerHTML = '';
+                
+            } catch (error) {
+                document.getElementById('error-container').innerHTML = `
+                    <div class="error">❌ Error loading data: ${error.message}</div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Refresh Data';
+            }
+        }
+        
+        // Load data on page load
+        loadData();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(loadData, 30000);
+    </script>
+</body>
+</html>

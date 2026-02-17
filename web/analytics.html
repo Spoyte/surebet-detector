@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <title>Analytics Dashboard — Surebet Detector</title>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Analytics-specific styles */
+        .analytics-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .analytics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .analytics-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #f8fafc;
+            margin: 0;
+        }
+        
+        .time-range-selector {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .time-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #334155;
+            background: #1e293b;
+            color: #94a3b8;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .time-btn:hover {
+            background: #334155;
+            color: #f8fafc;
+        }
+        
+        .time-btn.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        }
+        
+        .stat-card.positive::before {
+            background: linear-gradient(90deg, #10b981, #22c55e);
+        }
+        
+        .stat-card.negative::before {
+            background: linear-gradient(90deg, #ef4444, #f97316);
+        }
+        
+        .stat-label {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-change {
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .stat-change.positive {
+            color: #22c55e;
+        }
+        
+        .stat-change.negative {
+            color: #ef4444;
+        }
+        
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .chart-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+        
+        .chart-card.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .chart-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #f8fafc;
+            margin: 0;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        
+        .chart-container.large {
+            height: 400px;
+        }
+        
+        /* Tables */
+        .table-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+        
+        .analytics-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .analytics-table th,
+        .analytics-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+        
+        .analytics-table th {
+            background: #0f172a;
+            font-weight: 600;
+            color: #94a3b8;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .analytics-table tr:hover {
+            background: #252f47;
+        }
+        
+        .analytics-table td {
+            color: #e2e8f0;
+        }
+        
+        .analytics-table .positive {
+            color: #22c55e;
+        }
+        
+        .analytics-table .negative {
+            color: #ef4444;
+        }
+        
+        /* Performance Bars */
+        .performance-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .performance-track {
+            flex: 1;
+            height: 8px;
+            background: #334155;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .performance-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .performance-fill.positive {
+            background: linear-gradient(90deg, #10b981, #22c55e);
+        }
+        
+        .performance-fill.negative {
+            background: linear-gradient(90deg, #ef4444, #f97316);
+        }
+        
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 2rem 0 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #334155;
+        }
+        
+        .section-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #f8fafc;
+            margin: 0;
+        }
+        
+        /* Loading State */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.75rem;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #334155;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Export Button */
+        .export-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #334155;
+            color: #f8fafc;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background 0.2s;
+        }
+        
+        .export-btn:hover {
+            background: #475569;
+        }
+        
+        /* Navigation */
+        .analytics-nav {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 1rem;
+        }
+        
+        .nav-link {
+            padding: 0.5rem 1rem;
+            color: #94a3b8;
+            text-decoration: none;
+            border-radius: 0.375rem;
+            transition: all 0.2s;
+        }
+        
+        .nav-link:hover {
+            color: #f8fafc;
+            background: #1e293b;
+        }
+        
+        .nav-link.active {
+            color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-brand">
+            <span class="logo">📊</span>
+            <span class="name">Surebet Detector</span>
+        </div>
+        <div class="nav-stats">
+            <a href="/" class="btn btn-secondary" style="margin-right: 0.5rem;">← Dashboard</a>
+            <a href="/settlements" class="btn btn-secondary">🎯 Settlements</a>
+        </div>
+    </nav>
+    
+    <div class="analytics-container">
+        <div class="analytics-header">
+            <h1>📈 Advanced Analytics</h1>
+            <div class="time-range-selector">
+                <button class="time-btn" data-range="7d" onclick="setTimeRange('7d')">7D</button>
+                <button class="time-btn active" data-range="30d" onclick="setTimeRange('30d')">30D</button>
+                <button class="time-btn" data-range="90d" onclick="setTimeRange('90d')">90D</button>
+                <button class="time-btn" data-range="6m" onclick="setTimeRange('6m')">6M</button>
+            </div>
+        </div>
+        
+        <!-- Summary Stats -->
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Profit</div>
+                <div class="stat-value" id="total-profit">—</div>
+                <div class="stat-change" id="profit-change">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">ROI</div>
+                <div class="stat-value" id="roi-value">—</div>
+                <div class="stat-change" id="roi-change">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-value" id="win-rate">—</div>
+                <div class="stat-change" id="win-rate-change">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Bets</div>
+                <div class="stat-value" id="total-bets">—</div>
+                <div class="stat-change" id="bets-change">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">EV Accuracy</div>
+                <div class="stat-value" id="ev-accuracy">—</div>
+                <div class="stat-change" id="ev-accuracy-change">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Avg Profit/Bet</div>
+                <div class="stat-value" id="avg-profit">—</div>
+                <div class="stat-change" id="avg-profit-change">—</div>
+            </div>
+        </div>
+        
+        <!-- Charts -->
+        <div class="charts-grid">
+            <!-- Profit Over Time -->
+            <div class="chart-card full-width">
+                <div class="chart-header">
+                    <h3 class="chart-title">Profit Over Time</h3>
+                    <button class="export-btn" onclick="exportChart('profit')">📥 Export</button>
+                </div>
+                <div class="chart-container large">
+                    <canvas id="profitChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- ROI by Sport -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">ROI by Sport</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="sportChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- ROI by Bookmaker -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">ROI by Bookmaker</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="bookmakerChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Opportunity Frequency -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Opportunity Frequency</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="frequencyChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Monthly Comparison -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Monthly Comparison</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Tables -->
+        <div class="section-header">
+            <h2>🏆 Top Performers</h2>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="table-card">
+                <table class="analytics-table">
+                    <thead>
+                        <tr>
+                            <th>Sport</th>
+                            <th>Bets</th>
+                            <th>Staked</th>
+                            <th>Profit</th>
+                            <th>ROI</th>
+                            <th>Win Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sports-table">
+                        <tr><td colspan="6" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="table-card">
+                <table class="analytics-table">
+                    <thead>
+                        <tr>
+                            <th>Bookmaker</th>
+                            <th>Bets</th>
+                            <th>Staked</th>
+                            <th>Profit</th>
+                            <th>ROI</th>
+                            <th>Win Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bookmakers-table">
+                        <tr><td colspan="6" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Daily Breakdown -->
+        <div class="section-header">
+            <h2>📅 Daily Breakdown</h2>
+        </div>
+        
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">Daily Performance Summary</h3>
+                <button class="export-btn" onclick="exportTable('daily')">📥 Export CSV</button>
+            </div>
+            <table class="analytics-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Profit</th>
+                        <th>Cumulative</th>
+                        <th>Bets</th>
+                        <th>Opportunities</th>
+                        <th>Avg Quality</th>
+                    </tr>
+                </thead>
+                <tbody id="daily-table">
+                    <tr><td colspan="6" class="loading">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        // Global state
+        let currentTimeRange = '30d';
+        let charts = {};
+        let analyticsData = null;
+        
+        // Chart.js defaults
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#334155';
+        Chart.defaults.font.family = 'Inter, sans-serif';
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAnalytics();
+        });
+        
+        // Set time range
+        function setTimeRange(range) {
+            currentTimeRange = range;
+            
+            // Update button states
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.range === range);
+            });
+            
+            loadAnalytics();
+        }
+        
+        // Load analytics data
+        async function loadAnalytics() {
+            try {
+                const response = await fetch(`/api/analytics/dashboard?range=${currentTimeRange}`);
+                if (!response.ok) throw new Error('Failed to load analytics');
+                
+                analyticsData = await response.json();
+                updateDashboard(analyticsData);
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                showError('Failed to load analytics data');
+            }
+        }
+        
+        // Update dashboard with data
+        function updateDashboard(data) {
+            updateStats(data.summary);
+            updateCharts(data);
+            updateTables(data);
+        }
+        
+        // Update summary stats
+        function updateStats(summary) {
+            const formatCurrency = (val) => `€${val.toFixed(2)}`;
+            const formatPercent = (val) => `${val.toFixed(2)}%`;
+            
+            document.getElementById('total-profit').textContent = formatCurrency(summary.totalProfit);
+            document.getElementById('total-profit').className = `stat-value ${summary.totalProfit >= 0 ? '' : 'negative'}`;
+            
+            document.getElementById('roi-value').textContent = formatPercent(summary.roi);
+            document.getElementById('win-rate').textContent = formatPercent(summary.winRate);
+            document.getElementById('total-bets').textContent = summary.completedBets;
+            document.getElementById('ev-accuracy').textContent = formatPercent(summary.evAccuracy);
+            document.getElementById('avg-profit').textContent = formatCurrency(summary.avgProfitPerBet);
+        }
+        
+        // Update all charts
+        function updateCharts(data) {
+            updateProfitChart(data.profitOverTime);
+            updateSportChart(data.roiBySport);
+            updateBookmakerChart(data.roiByBookmaker);
+            updateFrequencyChart(data.opportunityFrequency);
+            updateMonthlyChart(data.monthlyComparison);
+        }
+        
+        // Profit over time chart
+        function updateProfitChart(data) {
+            const ctx = document.getElementById('profitChart').getContext('2d');
+            
+            if (charts.profit) charts.profit.destroy();
+            
+            charts.profit = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.date.slice(5)), // MM-DD
+                    datasets: [
+                        {
+                            label: 'Daily Profit',
+                            data: data.map(d => d.profit),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Cumulative',
+                            data: data.map(d => d.cumulative),
+                            borderColor: '#10b981',
+                            backgroundColor: 'transparent',
+                            borderDash: [5, 5],
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: (val) => `€${val}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // ROI by sport chart
+        function updateSportChart(data) {
+            const ctx = document.getElementById('sportChart').getContext('2d');
+            
+            if (charts.sport) charts.sport.destroy();
+            
+            charts.sport = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.sport.charAt(0).toUpperCase() + d.sport.slice(1)),
+                    datasets: [{
+                        label: 'ROI %',
+                        data: data.map(d => d.roi),
+                        backgroundColor: data.map(d => d.roi >= 0 ? '#10b981' : '#ef4444'),
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: (val) => `${val}%`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // ROI by bookmaker chart
+        function updateBookmakerChart(data) {
+            const ctx = document.getElementById('bookmakerChart').getContext('2d');
+            
+            if (charts.bookmaker) charts.bookmaker.destroy();
+            
+            charts.bookmaker = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(d => d.bookmaker),
+                    datasets: [{
+                        data: data.map(d => d.profit),
+                        backgroundColor: [
+                            '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Opportunity frequency chart
+        function updateFrequencyChart(data) {
+            const ctx = document.getElementById('frequencyChart').getContext('2d');
+            
+            if (charts.frequency) charts.frequency.destroy();
+            
+            charts.frequency = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.date.slice(5)),
+                    datasets: [
+                        {
+                            label: 'Arbitrage',
+                            data: data.map(d => d.arbitrage),
+                            backgroundColor: '#10b981',
+                            stack: 'stack1'
+                        },
+                        {
+                            label: '+EV',
+                            data: data.map(d => d.ev),
+                            backgroundColor: '#3b82f6',
+                            stack: 'stack1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true }
+                    }
+                }
+            });
+        }
+        
+        // Monthly comparison chart
+        function updateMonthlyChart(data) {
+            const ctx = document.getElementById('monthlyChart').getContext('2d');
+            
+            if (charts.monthly) charts.monthly.destroy();
+            
+            charts.monthly = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.label),
+                    datasets: [
+                        {
+                            label: 'Profit (€)',
+                            data: data.map(d => d.profit),
+                            backgroundColor: '#3b82f6',
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'ROI %',
+                            data: data.map(d => d.roi),
+                            borderColor: '#10b981',
+                            backgroundColor: 'transparent',
+                            type: 'line',
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            ticks: {
+                                callback: (val) => `€${val}`
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            ticks: {
+                                callback: (val) => `${val}%`
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update tables
+        function updateTables(data) {
+            updateSportsTable(data.roiBySport);
+            updateBookmakersTable(data.roiByBookmaker);
+            updateDailyTable(data.dailyBreakdown.daily);
+        }
+        
+        // Sports table
+        function updateSportsTable(data) {
+            const tbody = document.getElementById('sports-table');
+            tbody.innerHTML = data.map(row => `
+                <tr>
+                    <td>${row.sport.charAt(0).toUpperCase() + row.sport.slice(1)}</td>
+                    <td>${row.bets}</td>
+                    <td>€${row.staked.toFixed(2)}</td>
+                    <td class="${row.profit >= 0 ? 'positive' : 'negative'}">€${row.profit.toFixed(2)}</td>
+                    <td class="${row.roi >= 0 ? 'positive' : 'negative'}">${row.roi.toFixed(2)}%</td>
+                    <td>${row.winRate.toFixed(1)}%</td>
+                </tr>
+            `).join('');
+        }
+        
+        // Bookmakers table
+        function updateBookmakersTable(data) {
+            const tbody = document.getElementById('bookmakers-table');
+            tbody.innerHTML = data.map(row => `
+                <tr>
+                    <td>${row.bookmaker}</td>
+                    <td>${row.bets}</td>
+                    <td>€${row.staked.toFixed(2)}</td>
+                    <td class="${row.profit >= 0 ? 'positive' : 'negative'}">€${row.profit.toFixed(2)}</td>
+                    <td class="${row.roi >= 0 ? 'positive' : 'negative'}">${row.roi.toFixed(2)}%</td>
+                    <td>${row.winRate.toFixed(1)}%</td>
+                </tr>
+            `).join('');
+        }
+        
+        // Daily breakdown table
+        function updateDailyTable(data) {
+            const tbody = document.getElementById('daily-table');
+            tbody.innerHTML = data.slice().reverse().map(row => `
+                <tr>
+                    <td>${row.date}</td>
+                    <td class="${row.profit >= 0 ? 'positive' : 'negative'}">€${row.profit.toFixed(2)}</td>
+                    <td>€${row.cumulative.toFixed(2)}</td>
+                    <td>${row.betCount}</td>
+                    <td>${row.opportunities}</td>
+                    <td>${row.avgOppQuality.toFixed(2)}%</td>
+                </tr>
+            `).join('');
+        }
+        
+        // Export functions
+        function exportChart(type) {
+            const canvas = document.getElementById(type + 'Chart');
+            const link = document.createElement('a');
+            link.download = `chart_${type}_${currentTimeRange}_${new Date().toISOString().split('T')[0]}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        function exportTable(type) {
+            // Trigger CSV download via API
+            window.open(`/api/analytics/export?range=${currentTimeRange}&format=csv`, '_blank');
+        }
+        
+        // Show error
+        function showError(message) {
+            // Simple alert for now - could be a toast notification
+            console.error(message);
+        }
+    </script>
+</body>
+</html>

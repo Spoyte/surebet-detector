@@ -7,6 +7,10 @@
 require('dotenv').config({ path: './config/.env' });
 
 const WebDashboard = require('./web/server.js');
+const { createLoggerWithAudit, LogLevel } = require('./logger.js');
+
+// Global logger instance
+let logger, audit, debug;
 
 /**
  * Validates configuration values
@@ -83,16 +87,38 @@ function loadConfig() {
 
 // Main execution
 async function main() {
-  console.log('🎯 Surebet Detector Starting...\n');
+  // Initialize logger first
+  const logLevel = process.env.LOG_LEVEL === 'debug' ? LogLevel.DEBUG : 
+                   process.env.LOG_LEVEL === 'trace' ? LogLevel.TRACE :
+                   process.env.NODE_ENV === 'development' ? LogLevel.DEBUG : LogLevel.INFO;
+  
+  ({ logger, audit, debug } = createLoggerWithAudit({
+    level: logLevel,
+    logDir: process.env.LOG_DIR || './logs',
+    structured: true,
+    console: true,
+    file: true
+  }));
+
+  logger.info('🎯 Surebet Detector Starting...', { category: 'startup' });
   
   let config;
   try {
     config = loadConfig();
+    logger.info('Configuration loaded successfully', { 
+      category: 'config',
+      sports: config.SPORTS,
+      markets: config.MARKETS,
+      minEv: config.MIN_EV_THRESHOLD,
+      port: config.PORT,
+      updateCron: config.UPDATE_CRON
+    });
   } catch (err) {
-    console.error('❌ Failed to load configuration:', err.message);
+    logger.error('Failed to load configuration', { error: err.message, category: 'config' });
     process.exit(1);
   }
   
+  // Log configuration
   console.log('Configuration:');
   console.log(`  Sports: ${config.SPORTS}`);
   console.log(`  Markets: ${config.MARKETS}`);
@@ -103,9 +129,10 @@ async function main() {
   
   let dashboard;
   try {
-    dashboard = new WebDashboard(config);
+    dashboard = new WebDashboard(config, { logger, audit, debug });
+    logger.info('Dashboard initialized', { category: 'startup' });
   } catch (err) {
-    console.error('❌ Failed to initialize dashboard:', err.message);
+    logger.error('Failed to initialize dashboard', { error: err.message, category: 'startup' });
     process.exit(1);
   }
   
@@ -113,30 +140,48 @@ async function main() {
   if (process.env.VERCEL !== '1') {
     try {
       await dashboard.start();
+      logger.info('Server started successfully', { category: 'startup', port: config.PORT });
       console.log('\n✅ Server started successfully');
     } catch (err) {
-      console.error('❌ Failed to start server:', err.message);
+      logger.error('Failed to start server', { error: err.message, category: 'startup' });
       process.exit(1);
     }
   } else {
+    logger.info('Running in serverless mode (Vercel)', { category: 'startup' });
     console.log('\nℹ️  Running in serverless mode (Vercel)');
   }
   
   // Graceful shutdown handling
   process.on('SIGTERM', async () => {
+    logger.info('SIGTERM received, shutting down gracefully...', { category: 'shutdown' });
     console.log('\n🛑 SIGTERM received, shutting down gracefully...');
+    await audit.record('SHUTDOWN', { reason: 'SIGTERM', timestamp: new Date().toISOString() });
     if (dashboard.stop) {
       await dashboard.stop();
     }
+    await logger.shutdown();
+    await audit.shutdown();
     process.exit(0);
   });
   
   process.on('SIGINT', async () => {
+    logger.info('SIGINT received, shutting down gracefully...', { category: 'shutdown' });
     console.log('\n🛑 SIGINT received, shutting down gracefully...');
+    await audit.record('SHUTDOWN', { reason: 'SIGINT', timestamp: new Date().toISOString() });
     if (dashboard.stop) {
       await dashboard.stop();
     }
+    await logger.shutdown();
+    await audit.shutdown();
     process.exit(0);
+  });
+  
+  // Record startup in audit trail
+  await audit.record('STARTUP', { 
+    version: require('../package.json').version,
+    nodeEnv: config.NODE_ENV,
+    port: config.PORT,
+    timestamp: new Date().toISOString()
   });
   
   return dashboard;

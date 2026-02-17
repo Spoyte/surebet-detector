@@ -123,18 +123,26 @@ function renderArbitrageList(arbitrage) {
         return;
     }
     
-    container.innerHTML = arbitrage.map(arb => `
-        <div class="opportunity-card arbitrage">
+    container.innerHTML = arbitrage.map(arb => {
+        const qualityBadge = arb.qualityScore ? getQualityBadge(arb.quality, arb.qualityScore) : '';
+        const recommendation = arb.qualityDetails?.recommendation;
+        
+        return `
+        <div class="opportunity-card arbitrage ${arb.quality || ''}">
             <div class="opportunity-header">
                 <div>
                     <div class="opportunity-title">${escapeHtml(arb.event)}</div>
-                    <div class="opportunity-sport">${escapeHtml(arb.sport)} · ${formatTime(arb.commenceTime)}</div>
+                    <div class="opportunity-sport">${escapeHtml(arb.sport)} · ${formatTime(arb.commenceTime)} ${qualityBadge}</div>
                 </div>
                 <div class="opportunity-profit">
                     <div class="profit-value">+${arb.profitPercent}%</div>
                     <div class="profit-label">Guaranteed</div>
                 </div>
-            </div>
+            </div>            
+            ${recommendation ? `<div class="quality-recommendation ${recommendation.action}">
+                <span class="rec-icon">${getActionIcon(recommendation.action)}</span>
+                <span class="rec-text">${escapeHtml(recommendation.message)}</span>
+            </div>` : ''}
             <div class="opportunity-legs">
                 ${arb.legs.map(leg => `
                     <div class="leg">
@@ -148,7 +156,7 @@ function renderArbitrageList(arbitrage) {
             </div>
             ${arb.note ? `<div class="opportunity-note">${escapeHtml(arb.note)}</div>` : ''}
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function renderEVList(evOpportunities) {
@@ -545,6 +553,31 @@ function renderSuspiciousList(suspicious) {
             </p>
         </div>
     `).join('');
+}
+
+// Quality scoring helper functions
+function getQualityBadge(quality, score) {
+    const badges = {
+        'excellent': { icon: '⭐', class: 'quality-excellent', label: 'Excellent' },
+        'good': { icon: '✓', class: 'quality-good', label: 'Good' },
+        'fair': { icon: '~', class: 'quality-fair', label: 'Fair' },
+        'poor': { icon: '⚠', class: 'quality-poor', label: 'Poor' },
+        'very-poor': { icon: '✗', class: 'quality-very-poor', label: 'Very Poor' }
+    };
+    
+    const badge = badges[quality] || badges.fair;
+    return `<span class="quality-badge ${badge.class}" title="Quality Score: ${score}/100">${badge.icon} ${badge.label} (${score})</span>`;
+}
+
+function getActionIcon(action) {
+    const icons = {
+        'take-immediately': '🚀',
+        'take': '✓',
+        'take-caution': '⚠',
+        'skip-or-minimal': '⊘',
+        'skip': '✗'
+    };
+    return icons[action] || '•';
 }
 
 // Render odds movement data

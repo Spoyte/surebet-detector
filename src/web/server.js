@@ -10,29 +10,96 @@ const AlertConfig = require('../alert-config');
 const TaxExporter = require('../tax-exporter');
 const OddsMovementTracker = require('../odds-movement-tracker');
 const LiveMatchTracker = require('../live-match-tracker');
+const BankrollManager = require('../bankroll-manager');
+const SurebetWebSocketServer = require('../websocket-server');
+const { AdvancedAnalytics } = require('../advanced-analytics');
+const { BetSettlementTracker } = require('../bet-settlement-tracker');
+const StatePersistence = require('../state-persistence');
+const MetricsCollector = require('../metrics-collector');
+const OpportunityExporter = require('../opportunity-exporter');
+const { MLOddsPredictor } = require('../ml-odds-predictor');
+const { WatchlistManager } = require('../watchlist-manager');
+const ConfigManager = require('../config-manager');
 
 class WebDashboard {
-    constructor(config) {
+    constructor(config, loggerInstances = {}) {
         this.config = config;
+        this.logger = loggerInstances.logger || null;
+        this.audit = loggerInstances.audit || null;
+        this.debug = loggerInstances.debug || null;
+        
         this.app = express();
-        this.fetcher = new OddsFetcher(config);
-        this.analyzer = new OpportunityAnalyzer(config);
+        this.fetcher = new OddsFetcher(config, this.logger);
+        this.analyzer = new OpportunityAnalyzer(config, this.logger);
         this.promotions = new PromotionsTracker();
         this.alertConfig = new AlertConfig();
         this.taxExporter = new TaxExporter();
-        this.movementTracker = new OddsMovementTracker(config);
-        this.liveTracker = new LiveMatchTracker(config);
+        this.movementTracker = new OddsMovementTracker(config, this.logger);
+        this.liveTracker = new LiveMatchTracker(config, this.logger);
+        this.bankrollManager = new BankrollManager(config, this.logger);
+        this.wsServer = new SurebetWebSocketServer(config, this.logger);
+        this.analytics = new AdvancedAnalytics({ dataDir: path.join(__dirname, '../../data') }, this.logger);
+        this.settlementTracker = new BetSettlementTracker({ dataDir: path.join(__dirname, '../../data') }, this.logger);
+        this.statePersistence = new StatePersistence({
+            stateDir: path.join(__dirname, '../../data/state'),
+            autoSaveInterval: 5 * 60 * 1000 // 5 minutes
+        });
+        this.metrics = new MetricsCollector({
+            dataDir: path.join(__dirname, '../../data')
+        });
+        this.exporter = new OpportunityExporter({
+            dataDir: path.join(__dirname, '../../data'),
+            telegramBotToken: config.TELEGRAM_BOT_TOKEN,
+            telegramChatId: config.TELEGRAM_CHAT_ID
+        });
+        this.mlPredictor = new MLOddsPredictor({
+            dataDir: path.join(__dirname, '../../data')
+        });
+        this.watchlistManager = new WatchlistManager({
+            dataDir: path.join(__dirname, '../../data')
+        });
+        this.configManager = new ConfigManager();
         this.latestOpportunities = null;
         this.latestMovementAnalysis = null;
         
-        // Setup live tracker event handlers
+        // Setup event handlers
         this.setupLiveTrackerEvents();
+        this.setupBankrollEvents();
+        this.setupSettlementEvents();
+        this.setupWebSocketEvents();
         
         // Setup middleware first
         this.app.use(express.json());
         this.app.use(express.static(path.join(__dirname, '../../web/public')));
         
+        // Request logging middleware
+        this.app.use(this.requestLogger.bind(this));
+        
         this.setupRoutes();
+    }
+    
+    /**
+     * Express middleware for logging requests
+     */
+    requestLogger(req, res, next) {
+        const start = Date.now();
+        
+        res.on('finish', () => {
+            const duration = Date.now() - start;
+            if (this.logger) {
+                this.logger.info(`${req.method} ${req.path}`, {
+                    category: 'http',
+                    method: req.method,
+                    path: req.path,
+                    statusCode: res.statusCode,
+                    duration,
+                    ip: req.ip || req.connection.remoteAddress,
+                    userAgent: req.get('user-agent')
+                });
+            }
+        });
+        
+        next();
     }
 
     setupRoutes() {
@@ -279,9 +346,1768 @@ class WebDashboard {
             }
         });
 
+        // Bankroll Management API
+        this.app.get('/api/bankroll', async (req, res) => {
+            try {
+                const summary = this.bankrollManager.getBankrollSummary();
+                res.json(summary);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/bankroll', async (req, res) => {
+            try {
+                const { total, currency } = req.body;
+                const result = await this.bankrollManager.setTotalBankroll(total, currency);
+                res.json({ success: true, bankroll: result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/bankroll/add-funds', async (req, res) => {
+            try {
+                const { amount, note } = req.body;
+                const result = await this.bankrollManager.addFunds(amount, note);
+                res.json({ success: true, bankroll: result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/bankroll/withdraw', async (req, res) => {
+            try {
+                const { amount, note } = req.body;
+                const result = await this.bankrollManager.withdrawFunds(amount, note);
+                res.json({ success: true, bankroll: result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Bookmaker management
+        this.app.get('/api/bankroll/bookmakers', async (req, res) => {
+            try {
+                const summary = this.bankrollManager.getBankrollSummary();
+                res.json(summary.bookmakers);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/bankroll/bookmakers', async (req, res) => {
+            try {
+                const { name, balance, currency, ...metadata } = req.body;
+                const result = await this.bankrollManager.setBookmaker(name, balance, currency, metadata);
+                res.json({ success: true, bookmaker: result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.put('/api/bankroll/bookmakers/:name', async (req, res) => {
+            try {
+                const { balance } = req.body;
+                const result = await this.bankrollManager.updateBookmakerBalance(req.params.name, balance);
+                res.json({ success: true, bookmaker: result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.delete('/api/bankroll/bookmakers/:name', async (req, res) => {
+            try {
+                await this.bankrollManager.removeBookmaker(req.params.name);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Stake calculation
+        this.app.post('/api/bankroll/calculate-stakes', async (req, res) => {
+            try {
+                const { opportunity, type, options } = req.body;
+                let result;
+                
+                if (type === 'arbitrage') {
+                    result = this.bankrollManager.calculateArbitrageStakes(opportunity, options);
+                } else if (type === 'ev') {
+                    result = this.bankrollManager.calculateEVStake(opportunity, options);
+                } else {
+                    return res.status(400).json({ error: 'Invalid type. Use "arbitrage" or "ev"' });
+                }
+                
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Bet tracking
+        this.app.get('/api/bankroll/bets', async (req, res) => {
+            try {
+                const pending = Array.from(this.bankrollManager.pendingBets.values());
+                res.json({ pending, count: pending.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/bankroll/bets', async (req, res) => {
+            try {
+                const { betId, ...details } = req.body;
+                const result = await this.bankrollManager.placeBet(betId, details);
+                res.json({ success: true, bet: result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/bankroll/bets/:id/settle', async (req, res) => {
+            try {
+                const { result, actualProfit } = req.body;
+                const settlement = await this.bankrollManager.settleBet(req.params.id, { result, actualProfit });
+                res.json({ success: true, settlement });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.delete('/api/bankroll/bets/:id', async (req, res) => {
+            try {
+                await this.bankrollManager.cancelBet(req.params.id);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Statistics
+        this.app.get('/api/bankroll/stats', async (req, res) => {
+            try {
+                const stats = await this.bankrollManager.getStatistics();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/bankroll/risk-status', async (req, res) => {
+            try {
+                const status = this.bankrollManager.checkRiskLimits();
+                res.json(status);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Smart Bet Sizing API
+        this.app.post('/api/bankroll/smart-stakes/arbitrage', async (req, res) => {
+            try {
+                const { opportunity, options } = req.body;
+                const result = this.bankrollManager.calculateSmartArbitrageStakes(opportunity, options);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/bankroll/smart-stakes/ev', async (req, res) => {
+            try {
+                const { opportunity, options } = req.body;
+                const result = this.bankrollManager.calculateSmartEVStake(opportunity, options);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/bankroll/smart-stakes/risk-status', async (req, res) => {
+            try {
+                const status = this.bankrollManager.getSmartRiskStatus();
+                res.json(status);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/bankroll/smart-stakes/config', async (req, res) => {
+            try {
+                const config = this.bankrollManager.getSmartSizingConfig();
+                res.json(config);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/bankroll/smart-stakes/config', async (req, res) => {
+            try {
+                this.bankrollManager.updateSmartSizingConfig(req.body);
+                const config = this.bankrollManager.getSmartSizingConfig();
+                res.json({ success: true, config });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Advanced Analytics API
+        this.app.get('/api/analytics/dashboard', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '30d';
+                const data = await this.analytics.getDashboardData(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/analytics/summary', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '30d';
+                const summary = await this.analytics.getSummaryStats(timeRange);
+                res.json(summary);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/analytics/profit', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '30d';
+                const data = await this.analytics.getProfitOverTime(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/analytics/roi/sports', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '30d';
+                const data = await this.analytics.getROIBySport(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/analytics/roi/bookmakers', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '30d';
+                const data = await this.analytics.getROIByBookmaker(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/analytics/frequency', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '30d';
+                const data = await this.analytics.getOpportunityFrequency(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/analytics/success-rate', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '30d';
+                const data = await this.analytics.getSuccessRate(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/analytics/monthly', async (req, res) => {
+            try {
+                const data = await this.analytics.getMonthlyComparison();
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/analytics/ev-accuracy', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '30d';
+                const data = await this.analytics.getEVAccuracy(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/analytics/bookmaker-health', async (req, res) => {
+            try {
+                const data = await this.analytics.getBookmakerHealth();
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/analytics/export', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '30d';
+                const format = req.query.format || 'json';
+                const result = await this.analytics.exportAnalytics(format, timeRange);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Bet Settlement API
+        this.app.get('/api/settlements/bets', async (req, res) => {
+            try {
+                const { status = 'all', range = '30d' } = req.query;
+                let bets;
+                if (status === 'pending') {
+                    bets = this.settlementTracker.getPendingBets();
+                } else if (status === 'settled') {
+                    bets = this.settlementTracker.getSettledBets(range);
+                } else {
+                    bets = [...this.settlementTracker.getPendingBets(), ...this.settlementTracker.getSettledBets(range)];
+                }
+                res.json({ bets, count: bets.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/settlements/bets/:id', async (req, res) => {
+            try {
+                const bet = this.settlementTracker.getBet(req.params.id);
+                if (!bet) {
+                    return res.status(404).json({ error: 'Bet not found' });
+                }
+                res.json(bet);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/settlements/bets', async (req, res) => {
+            try {
+                const bet = await this.settlementTracker.registerBet(req.body);
+                res.json({ success: true, bet });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/settlements/bets/:id/settle', async (req, res) => {
+            try {
+                const result = await this.settlementTracker.settleBet(req.params.id, req.body);
+                res.json({ success: true, ...result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/settlements/bets/:id/cancel', async (req, res) => {
+            try {
+                const bet = await this.settlementTracker.cancelBet(req.params.id, req.body.reason);
+                res.json({ success: true, bet });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/settlements/stats', async (req, res) => {
+            try {
+                const range = req.query.range || '30d';
+                const stats = await this.settlementTracker.getStatistics(range);
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/settlements/attention', async (req, res) => {
+            try {
+                const maxAge = parseInt(req.query.maxAge) || 24;
+                const bets = this.settlementTracker.getPendingBetsNeedingAttention(maxAge);
+                res.json({ bets, count: bets.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/settlements/reconciliation', async (req, res) => {
+            try {
+                const range = req.query.range || '30d';
+                const report = await this.settlementTracker.getReconciliationReport(range);
+                res.json(report);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/settlements/export', async (req, res) => {
+            try {
+                const range = req.query.range || '30d';
+                const csv = await this.settlementTracker.exportToCSV(range);
+                res.setHeader('Content-Type', 'text/csv');
+                res.setHeader('Content-Disposition', `attachment; filename="settlements_${range}_${new Date().toISOString().split('T')[0]}.csv"`);
+                res.send(csv);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/settlements/check', async (req, res) => {
+            try {
+                const result = await this.settlementTracker.checkPendingBets();
+                res.json({ success: true, ...result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/settlements/arbitrage', async (req, res) => {
+            try {
+                const result = await this.settlementTracker.registerArbitrageBet(req.body);
+                res.json({ success: true, ...result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Opportunity Quality Scoring API
+        this.app.get('/api/quality/config', async (req, res) => {
+            try {
+                const config = this.analyzer.qualityScorer.getConfig();
+                res.json(config);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/quality/score', async (req, res) => {
+            try {
+                const { opportunity, type = 'arbitrage' } = req.body;
+                const score = type === 'arbitrage' 
+                    ? this.analyzer.qualityScorer.scoreArbitrageOpportunity(opportunity)
+                    : this.analyzer.qualityScorer.scoreEVOpportunity(opportunity);
+                res.json(score);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/quality/score-batch', async (req, res) => {
+            try {
+                const { opportunities, type = 'arbitrage' } = req.body;
+                const scored = this.analyzer.qualityScorer.scoreAndRankOpportunities(opportunities, type);
+                res.json({ opportunities: scored, count: scored.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/quality/distribution', async (req, res) => {
+            try {
+                const data = await this.loadLatestData();
+                const arbDist = this.analyzer.qualityScorer.getQualityDistribution(data.arbitrage || [], 'arbitrage');
+                const evDist = this.analyzer.qualityScorer.getQualityDistribution(data.positiveEV || [], 'ev');
+                res.json({ arbitrage: arbDist, ev: evDist });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/quality/weights', async (req, res) => {
+            try {
+                this.analyzer.qualityScorer.updateWeights(req.body);
+                const config = this.analyzer.qualityScorer.getConfig();
+                res.json({ success: true, weights: config.weights });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/quality/record-outcome', async (req, res) => {
+            try {
+                const { opportunity, outcome } = req.body;
+                await this.analyzer.qualityScorer.recordOutcome(opportunity, outcome);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Bookmaker Health Monitoring API
+        this.app.get('/api/health/status', async (req, res) => {
+            try {
+                const status = this.analyzer.healthMonitor.getAllHealthStatus();
+                res.json(status);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/health/status/:bookmaker', async (req, res) => {
+            try {
+                const status = this.analyzer.healthMonitor.getHealthStatus(req.params.bookmaker);
+                if (!status) {
+                    return res.status(404).json({ error: 'Bookmaker not found' });
+                }
+                res.json(status);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/health/summary', async (req, res) => {
+            try {
+                const summary = this.analyzer.healthMonitor.getHealthSummary();
+                res.json(summary);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/health/trends/:bookmaker', async (req, res) => {
+            try {
+                const hours = parseInt(req.query.hours) || 24;
+                const trends = this.analyzer.healthMonitor.getPerformanceTrends(req.params.bookmaker, hours);
+                if (!trends) {
+                    return res.status(404).json({ error: 'No data available for bookmaker' });
+                }
+                res.json(trends);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/health/by-status/:status', async (req, res) => {
+            try {
+                const bookmakers = this.analyzer.healthMonitor.getBookmakersByStatus(req.params.status);
+                res.json({ status: req.params.status, bookmakers });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/health/record', async (req, res) => {
+            try {
+                const { bookmaker, responseTime, errorRate, dataFreshness, success, error } = req.body;
+                const result = await this.analyzer.healthMonitor.recordHealthCheck(bookmaker, {
+                    responseTime,
+                    errorRate,
+                    dataFreshness,
+                    success,
+                    error
+                });
+                res.json({ success: true, result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/health/config', async (req, res) => {
+            try {
+                const config = this.analyzer.healthMonitor.getConfig();
+                res.json(config);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/health/config', async (req, res) => {
+            try {
+                this.analyzer.healthMonitor.updateConfig(req.body);
+                const config = this.analyzer.healthMonitor.getConfig();
+                res.json({ success: true, config });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/health/bookmaker/:name/enable', async (req, res) => {
+            try {
+                const { enabled } = req.body;
+                this.analyzer.healthMonitor.setBookmakerEnabled(req.params.name, enabled);
+                res.json({ success: true, name: req.params.name, enabled });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/health/clear-history', async (req, res) => {
+            try {
+                await this.analyzer.healthMonitor.clearHistory();
+                res.json({ success: true, message: 'Health history cleared' });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/health/export', async (req, res) => {
+            try {
+                const format = req.query.format || 'json';
+                const data = await this.analyzer.healthMonitor.exportData(format);
+                
+                if (format === 'csv') {
+                    res.setHeader('Content-Type', 'text/csv');
+                    res.setHeader('Content-Disposition', `attachment; filename="health_export_${new Date().toISOString().split('T')[0]}.csv"`);
+                    res.send(data);
+                } else {
+                    res.setHeader('Content-Type', 'application/json');
+                    res.setHeader('Content-Disposition', `attachment; filename="health_export_${new Date().toISOString().split('T')[0]}.json"`);
+                    res.send(data);
+                }
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Multi-Currency API
+        this.app.get('/api/currency/stats', async (req, res) => {
+            try {
+                const stats = this.bankrollManager.currencyManager.getCurrencyStats();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/currency/rates', async (req, res) => {
+            try {
+                const rates = this.bankrollManager.currencyManager.rates;
+                res.json({
+                    base: this.bankrollManager.currencyManager.config.baseCurrency,
+                    rates,
+                    lastUpdated: this.bankrollManager.currencyManager.rateHistory.length > 0
+                        ? this.bankrollManager.currencyManager.rateHistory[this.bankrollManager.currencyManager.rateHistory.length - 1].timestamp
+                        : null
+                });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/currency/refresh-rates', async (req, res) => {
+            try {
+                await this.bankrollManager.currencyManager.refreshRates();
+                res.json({ success: true, rates: this.bankrollManager.currencyManager.rates });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/currency/convert', async (req, res) => {
+            try {
+                const { amount, from, to } = req.body;
+                const converted = this.bankrollManager.currencyManager.convert(amount, from, to);
+                res.json({
+                    original: { amount, currency: from },
+                    converted: { amount: converted, currency: to },
+                    rate: this.bankrollManager.currencyManager.rates[to] / this.bankrollManager.currencyManager.rates[from]
+                });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/currency/forex-impact', async (req, res) => {
+            try {
+                const range = req.query.range || '30d';
+                const impact = this.bankrollManager.currencyManager.getForexImpactSummary(range);
+                res.json(impact);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/currency/transaction', async (req, res) => {
+            try {
+                const transaction = await this.bankrollManager.currencyManager.recordTransaction(req.body);
+                res.json({ success: true, transaction });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/currency/transactions', async (req, res) => {
+            try {
+                const { currency, type, limit = 100 } = req.query;
+                let transactions = this.bankrollManager.currencyManager.transactions;
+                
+                if (currency) {
+                    transactions = transactions.filter(t => t.currency === currency);
+                }
+                if (type) {
+                    transactions = transactions.filter(t => t.type === type);
+                }
+                
+                transactions = transactions.slice(-parseInt(limit));
+                res.json({ transactions, count: transactions.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/currency/bookmaker', async (req, res) => {
+            try {
+                const { bookmaker, currency, balance } = req.body;
+                const account = await this.bankrollManager.currencyManager.addBookmakerAccount(bookmaker, currency, { balance });
+                res.json({ success: true, account });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/currency/config', async (req, res) => {
+            try {
+                const config = this.bankrollManager.currencyManager.getConfig();
+                res.json(config);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/currency/config', async (req, res) => {
+            try {
+                await this.bankrollManager.currencyManager.updateConfig(req.body);
+                const config = this.bankrollManager.currencyManager.getConfig();
+                res.json({ success: true, config });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/currency/export', async (req, res) => {
+            try {
+                const format = req.query.format || 'json';
+                const data = await this.bankrollManager.currencyManager.exportData(format);
+                
+                if (format === 'csv') {
+                    res.setHeader('Content-Type', 'text/csv');
+                    res.setHeader('Content-Disposition', `attachment; filename="currency_export_${new Date().toISOString().split('T')[0]}.csv"`);
+                    res.send(data);
+                } else {
+                    res.setHeader('Content-Type', 'application/json');
+                    res.setHeader('Content-Disposition', `attachment; filename="currency_export_${new Date().toISOString().split('T')[0]}.json"`);
+                    res.send(data);
+                }
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Logging and Audit API
+        this.app.get('/api/logs/stats', async (req, res) => {
+            try {
+                if (!this.logger) {
+                    return res.status(503).json({ error: 'Logger not initialized' });
+                }
+                const stats = this.logger.getStats();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/logs/search', async (req, res) => {
+            try {
+                if (!this.logger) {
+                    return res.status(503).json({ error: 'Logger not initialized' });
+                }
+                const { level, category, searchText, startTime, endTime, limit = 100 } = req.query;
+                const results = await this.logger.search({
+                    level: level ? parseInt(level) : undefined,
+                    category,
+                    searchText,
+                    startTime,
+                    endTime,
+                    limit: parseInt(limit)
+                });
+                res.json({ results, count: results.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/logs/recent-errors', async (req, res) => {
+            try {
+                if (!this.logger) {
+                    return res.status(503).json({ error: 'Logger not initialized' });
+                }
+                const limit = parseInt(req.query.limit) || 10;
+                const stats = this.logger.getStats();
+                res.json({ errors: stats.recentErrors.slice(-limit) });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/logs/level', async (req, res) => {
+            try {
+                if (!this.logger) {
+                    return res.status(503).json({ error: 'Logger not initialized' });
+                }
+                const { level } = req.body;
+                const validLevels = ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'];
+                if (!validLevels.includes(level)) {
+                    return res.status(400).json({ error: `Invalid level. Use: ${validLevels.join(', ')}` });
+                }
+                this.logger.config.level = require('../logger.js').LogLevel[level];
+                res.json({ success: true, level });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Audit Trail API
+        this.app.get('/api/audit/search', async (req, res) => {
+            try {
+                if (!this.audit) {
+                    return res.status(503).json({ error: 'Audit trail not initialized' });
+                }
+                const { action, type, startTime, endTime, limit = 100 } = req.query;
+                const results = await this.audit.search({
+                    action,
+                    type,
+                    startTime,
+                    endTime,
+                    limit: parseInt(limit)
+                });
+                res.json({ results, count: results.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/audit/stats', async (req, res) => {
+            try {
+                if (!this.audit) {
+                    return res.status(503).json({ error: 'Audit trail not initialized' });
+                }
+                const timeRange = req.query.range || '24h';
+                const stats = await this.audit.getStats(timeRange);
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/audit/recent', async (req, res) => {
+            try {
+                if (!this.audit) {
+                    return res.status(503).json({ error: 'Audit trail not initialized' });
+                }
+                const limit = parseInt(req.query.limit) || 50;
+                const results = await this.audit.search({ limit });
+                res.json({ results, count: results.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/audit/bets', async (req, res) => {
+            try {
+                if (!this.audit) {
+                    return res.status(503).json({ error: 'Audit trail not initialized' });
+                }
+                const results = await this.audit.search({ type: 'bet', limit: 100 });
+                res.json({ results, count: results.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/audit/opportunities', async (req, res) => {
+            try {
+                if (!this.audit) {
+                    return res.status(503).json({ error: 'Audit trail not initialized' });
+                }
+                const results = await this.audit.search({ type: 'opportunity', limit: 100 });
+                res.json({ results, count: results.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // State Persistence API
+        this.app.get('/api/state', async (req, res) => {
+            try {
+                const state = this.statePersistence.getState();
+                res.json(state);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/state/session', async (req, res) => {
+            try {
+                const stats = this.statePersistence.getSessionStats();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/state/save', async (req, res) => {
+            try {
+                const success = await this.statePersistence.save('manual');
+                res.json({ success, timestamp: new Date().toISOString() });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/state/backups', async (req, res) => {
+            try {
+                const backups = await this.statePersistence.listBackups();
+                res.json({ backups, count: backups.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/state/restore/:index', async (req, res) => {
+            try {
+                const index = parseInt(req.params.index);
+                const success = await this.statePersistence.restoreFromBackup(index);
+                res.json({ success, restoredFrom: index });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/state/clear', async (req, res) => {
+            try {
+                const success = await this.statePersistence.clearAll();
+                res.json({ success, message: 'All state cleared' });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Metrics and Monitoring API
+        this.app.get('/metrics', async (req, res) => {
+            try {
+                const prometheusMetrics = this.metrics.getPrometheusMetrics();
+                res.setHeader('Content-Type', 'text/plain');
+                res.send(prometheusMetrics);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/metrics/summary', async (req, res) => {
+            try {
+                const summary = this.metrics.getMetricsSummary();
+                res.json(summary);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/health', async (req, res) => {
+            try {
+                const health = this.metrics.getHealthStatus();
+                const statusCode = health.status === 'healthy' ? 200 : 
+                                  health.status === 'degraded' ? 200 : 503;
+                res.status(statusCode).json(health);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/health/ready', async (req, res) => {
+            try {
+                const health = this.metrics.getHealthStatus();
+                if (health.status === 'healthy' || health.status === 'degraded') {
+                    res.json({ ready: true, status: health.status });
+                } else {
+                    res.status(503).json({ ready: false, status: health.status });
+                }
+            } catch (error) {
+                res.status(503).json({ ready: false, error: error.message });
+            }
+        });
+
+        this.app.get('/api/health/live', async (req, res) => {
+            try {
+                res.json({ alive: true, timestamp: new Date().toISOString() });
+            } catch (error) {
+                res.status(500).json({ alive: false, error: error.message });
+            }
+        });
+
+        this.app.get('/api/metrics/performance', async (req, res) => {
+            try {
+                const performance = await this.metrics.getPerformanceMetrics();
+                res.json(performance);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/metrics/trends', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '1h';
+                const trends = this.metrics.getTrends(timeRange);
+                res.json(trends);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/metrics/record-opportunity', async (req, res) => {
+            try {
+                const { type, opportunity } = req.body;
+                this.metrics.recordOpportunity(type, opportunity);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/metrics/record-bet', async (req, res) => {
+            try {
+                const { bet, result } = req.body;
+                this.metrics.recordBet(bet, result);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/metrics/record-api-call', async (req, res) => {
+            try {
+                const { bookmaker, duration, success } = req.body;
+                this.metrics.recordApiCall(bookmaker, duration, success);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/metrics/record-error', async (req, res) => {
+            try {
+                const { type, message } = req.body;
+                this.metrics.recordError(type, message);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/metrics/reset', async (req, res) => {
+            try {
+                this.metrics.reset();
+                res.json({ success: true, message: 'Metrics reset' });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Opportunity Export and Sharing API
+        this.app.get('/api/opportunities/export/json', async (req, res) => {
+            try {
+                const data = await this.loadLatestData();
+                const opportunities = [...data.arbitrage, ...data.positiveEV];
+                const json = await this.exporter.exportToJSON(opportunities, req.query);
+                
+                res.setHeader('Content-Type', 'application/json');
+                res.setHeader('Content-Disposition', `attachment; filename="opportunities_${new Date().toISOString().split('T')[0]}.json"`);
+                res.send(json);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/opportunities/export/csv', async (req, res) => {
+            try {
+                const data = await this.loadLatestData();
+                const opportunities = [...data.arbitrage, ...data.positiveEV];
+                const csv = await this.exporter.exportToCSV(opportunities, req.query);
+                
+                res.setHeader('Content-Type', 'text/csv');
+                res.setHeader('Content-Disposition', `attachment; filename="opportunities_${new Date().toISOString().split('T')[0]}.csv"`);
+                res.send(csv);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/opportunities/export/excel', async (req, res) => {
+            try {
+                const data = await this.loadLatestData();
+                const opportunities = [...data.arbitrage, ...data.positiveEV];
+                const excelData = await this.exporter.exportToExcelData(opportunities);
+                
+                res.json(excelData);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/opportunities/export/pdf', async (req, res) => {
+            try {
+                const data = await this.loadLatestData();
+                const opportunities = [...data.arbitrage, ...data.positiveEV];
+                const html = await this.exporter.exportToPDF(opportunities, req.query);
+                
+                res.setHeader('Content-Type', 'text/html');
+                res.setHeader('Content-Disposition', `attachment; filename="opportunities_${new Date().toISOString().split('T')[0]}.html"`);
+                res.send(html);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/opportunities/share', async (req, res) => {
+            try {
+                const { opportunityIds, expiresInHours = 24, password } = req.body;
+                const data = await this.loadLatestData();
+                const allOpportunities = [...data.arbitrage, ...data.positiveEV];
+                const selected = allOpportunities.filter(o => opportunityIds.includes(o.id));
+                
+                if (selected.length === 0) {
+                    return res.status(404).json({ error: 'No opportunities found with given IDs' });
+                }
+                
+                const shareLink = this.exporter.createShareableLink(selected, {
+                    expiresInHours,
+                    password,
+                    baseUrl: `${req.protocol}://${req.get('host')}`
+                });
+                
+                res.json({ success: true, shareLink });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/share/:linkId', async (req, res) => {
+            try {
+                const { password } = req.query;
+                const result = this.exporter.getSharedOpportunities(req.params.linkId, password);
+                
+                if (result.error) {
+                    return res.status(404).json(result);
+                }
+                
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/opportunities/share/telegram', async (req, res) => {
+            try {
+                const { opportunityIds, message } = req.body;
+                const data = await this.loadLatestData();
+                const allOpportunities = [...data.arbitrage, ...data.positiveEV];
+                const selected = allOpportunities.filter(o => opportunityIds.includes(o.id));
+                
+                if (selected.length === 0) {
+                    return res.status(404).json({ error: 'No opportunities found with given IDs' });
+                }
+                
+                const result = await this.exporter.shareViaTelegram(selected, { message });
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/opportunities/share/email', async (req, res) => {
+            try {
+                const { opportunityIds, email, subject, message } = req.body;
+                const data = await this.loadLatestData();
+                const allOpportunities = [...data.arbitrage, ...data.positiveEV];
+                const selected = allOpportunities.filter(o => opportunityIds.includes(o.id));
+                
+                if (selected.length === 0) {
+                    return res.status(404).json({ error: 'No opportunities found with given IDs' });
+                }
+                
+                const result = await this.exporter.shareViaEmail(selected, email, { subject, message });
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/opportunities/shares', async (req, res) => {
+            try {
+                const links = this.exporter.getActiveShareLinks();
+                res.json({ links, count: links.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.delete('/api/opportunities/shares/:linkId', async (req, res) => {
+            try {
+                const success = this.exporter.revokeShareLink(req.params.linkId);
+                res.json({ success, revoked: req.params.linkId });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/opportunities/export/history', async (req, res) => {
+            try {
+                const limit = parseInt(req.query.limit) || 50;
+                const history = this.exporter.getExportHistory(limit);
+                res.json({ history, count: history.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // ML Odds Prediction API
+        this.app.get('/api/ml/predictions', async (req, res) => {
+            try {
+                const predictions = this.mlPredictor.getAllPredictions();
+                res.json({ predictions, count: predictions.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/ml/predictions/:eventId', async (req, res) => {
+            try {
+                const predictions = await this.mlPredictor.getEventPredictions(req.params.eventId);
+                res.json({ predictions, count: predictions.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/ml/predict', async (req, res) => {
+            try {
+                const { event, bookmaker, market, outcome } = req.body;
+                const result = await this.mlPredictor.predictOdds(event, bookmaker, market, outcome);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/ml/predict-arbitrage', async (req, res) => {
+            try {
+                const { events } = req.body;
+                const predictions = await this.mlPredictor.predictArbitrageOpportunities(events);
+                res.json({ predictions, count: predictions.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/ml/stats', async (req, res) => {
+            try {
+                const stats = this.mlPredictor.getStats();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/ml/accuracy', async (req, res) => {
+            try {
+                const evaluation = await this.mlPredictor.evaluateAccuracy();
+                res.json(evaluation);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/ml/export', async (req, res) => {
+            try {
+                const format = req.query.format || 'json';
+                const data = await this.mlPredictor.exportPredictions(format);
+                
+                if (format === 'csv') {
+                    res.setHeader('Content-Type', 'text/csv');
+                    res.setHeader('Content-Disposition', `attachment; filename="ml_predictions_${new Date().toISOString().split('T')[0]}.csv"`);
+                } else {
+                    res.setHeader('Content-Type', 'application/json');
+                    res.setHeader('Content-Disposition', `attachment; filename="ml_predictions_${new Date().toISOString().split('T')[0]}.json"`);
+                }
+                res.send(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/ml/record-odds', async (req, res) => {
+            try {
+                const { eventId, bookmaker, market, odds, timestamp } = req.body;
+                await this.mlPredictor.recordOdds(eventId, bookmaker, market, odds, timestamp);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Watchlist API
+        this.app.get('/api/watchlist/bookmarks', async (req, res) => {
+            try {
+                const result = this.watchlistManager.getAllBookmarks(req.query);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/watchlist/bookmarks', async (req, res) => {
+            try {
+                const { opportunity, notes } = req.body;
+                const bookmark = this.watchlistManager.bookmarkOpportunity(opportunity, notes);
+                res.json({ success: true, bookmark });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/watchlist/bookmarks/:id', async (req, res) => {
+            try {
+                const bookmark = this.watchlistManager.getBookmark(req.params.id);
+                if (!bookmark) {
+                    return res.status(404).json({ error: 'Bookmark not found' });
+                }
+                res.json(bookmark);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.delete('/api/watchlist/bookmarks/:id', async (req, res) => {
+            try {
+                const success = this.watchlistManager.removeBookmark(req.params.id);
+                res.json({ success });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.patch('/api/watchlist/bookmarks/:id/status', async (req, res) => {
+            try {
+                const { status, details } = req.body;
+                const bookmark = this.watchlistManager.updateBookmarkStatus(req.params.id, status, details);
+                if (!bookmark) {
+                    return res.status(404).json({ error: 'Bookmark not found' });
+                }
+                res.json({ success: true, bookmark });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.patch('/api/watchlist/bookmarks/:id/notes', async (req, res) => {
+            try {
+                const { notes } = req.body;
+                const bookmark = this.watchlistManager.updateNotes(req.params.id, notes);
+                if (!bookmark) {
+                    return res.status(404).json({ error: 'Bookmark not found' });
+                }
+                res.json({ success: true, bookmark });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/watchlist/bookmarks/:id/tags', async (req, res) => {
+            try {
+                const { tags } = req.body;
+                const bookmark = this.watchlistManager.addTags(req.params.id, tags);
+                if (!bookmark) {
+                    return res.status(404).json({ error: 'Bookmark not found' });
+                }
+                res.json({ success: true, bookmark });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.delete('/api/watchlist/bookmarks/:id/tags', async (req, res) => {
+            try {
+                const { tags } = req.body;
+                const bookmark = this.watchlistManager.removeTags(req.params.id, tags);
+                if (!bookmark) {
+                    return res.status(404).json({ error: 'Bookmark not found' });
+                }
+                res.json({ success: true, bookmark });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Watchlists
+        this.app.get('/api/watchlist/lists', async (req, res) => {
+            try {
+                const lists = this.watchlistManager.getAllWatchlists(req.query);
+                res.json({ watchlists: lists, count: lists.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/watchlist/lists', async (req, res) => {
+            try {
+                const { name, ...options } = req.body;
+                const watchlist = this.watchlistManager.createWatchlist(name, options);
+                res.json({ success: true, watchlist });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/watchlist/lists/:name', async (req, res) => {
+            try {
+                const watchlist = this.watchlistManager.getWatchlist(req.params.name);
+                if (!watchlist) {
+                    return res.status(404).json({ error: 'Watchlist not found' });
+                }
+                res.json(watchlist);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.patch('/api/watchlist/lists/:name', async (req, res) => {
+            try {
+                const watchlist = this.watchlistManager.updateWatchlist(req.params.name, req.body);
+                if (!watchlist) {
+                    return res.status(404).json({ error: 'Watchlist not found' });
+                }
+                res.json({ success: true, watchlist });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.delete('/api/watchlist/lists/:name', async (req, res) => {
+            try {
+                const success = this.watchlistManager.deleteWatchlist(req.params.name);
+                res.json({ success });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/watchlist/lists/:name/teams', async (req, res) => {
+            try {
+                const { teams } = req.body;
+                const watchlist = this.watchlistManager.addTeams(req.params.name, teams);
+                if (!watchlist) {
+                    return res.status(404).json({ error: 'Watchlist not found' });
+                }
+                res.json({ success: true, watchlist });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.delete('/api/watchlist/lists/:name/teams', async (req, res) => {
+            try {
+                const { teams } = req.body;
+                const watchlist = this.watchlistManager.removeTeams(req.params.name, teams);
+                if (!watchlist) {
+                    return res.status(404).json({ error: 'Watchlist not found' });
+                }
+                res.json({ success: true, watchlist });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/watchlist/lists/:name/leagues', async (req, res) => {
+            try {
+                const { leagues } = req.body;
+                const watchlist = this.watchlistManager.addLeagues(req.params.name, leagues);
+                if (!watchlist) {
+                    return res.status(404).json({ error: 'Watchlist not found' });
+                }
+                res.json({ success: true, watchlist });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.delete('/api/watchlist/lists/:name/leagues', async (req, res) => {
+            try {
+                const { leagues } = req.body;
+                const watchlist = this.watchlistManager.removeLeagues(req.params.name, leagues);
+                if (!watchlist) {
+                    return res.status(404).json({ error: 'Watchlist not found' });
+                }
+                res.json({ success: true, watchlist });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Price alerts
+        this.app.post('/api/watchlist/price-alerts', async (req, res) => {
+            try {
+                const { bookmarkId, targetOdds, direction } = req.body;
+                const alert = this.watchlistManager.setPriceAlert(bookmarkId, targetOdds, direction);
+                if (!alert) {
+                    return res.status(404).json({ error: 'Bookmark not found' });
+                }
+                res.json({ success: true, alert });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.delete('/api/watchlist/price-alerts/:bookmarkId', async (req, res) => {
+            try {
+                const success = this.watchlistManager.removePriceAlert(req.params.bookmarkId);
+                res.json({ success });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Notifications
+        this.app.get('/api/watchlist/notifications', async (req, res) => {
+            try {
+                const result = this.watchlistManager.getNotifications(req.query);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/watchlist/notifications/read', async (req, res) => {
+            try {
+                const { ids } = req.body;
+                this.watchlistManager.markAsRead(ids);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/watchlist/notifications/read-all', async (req, res) => {
+            try {
+                this.watchlistManager.markAllAsRead();
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Stats and export
+        this.app.get('/api/watchlist/stats', async (req, res) => {
+            try {
+                const stats = this.watchlistManager.getStats();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/watchlist/export', async (req, res) => {
+            try {
+                const format = req.query.format || 'json';
+                const data = await this.watchlistManager.exportData(format);
+                
+                if (format === 'csv') {
+                    res.setHeader('Content-Type', 'text/csv');
+                    res.setHeader('Content-Disposition', `attachment; filename="watchlist_${new Date().toISOString().split('T')[0]}.csv"`);
+                } else {
+                    res.setHeader('Content-Type', 'application/json');
+                    res.setHeader('Content-Disposition', `attachment; filename="watchlist_${new Date().toISOString().split('T')[0]}.json"`);
+                }
+                res.send(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/watchlist/import', async (req, res) => {
+            try {
+                const { data } = req.body;
+                await this.watchlistManager.importData(data);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Analytics Dashboard Page
+        this.app.get('/analytics', (req, res) => {
+            res.sendFile(path.join(__dirname, '../../web/analytics.html'));
+        });
+
+        // Settlement Tracker Page
+        this.app.get('/settlements', (req, res) => {
+            res.sendFile(path.join(__dirname, '../../web/settlements.html'));
+        });
+
+        // Health Monitor Page
+        this.app.get('/health', (req, res) => {
+            res.sendFile(path.join(__dirname, '../../web/health.html'));
+        });
+
+        // Configuration Page
+        this.app.get('/config', (req, res) => {
+            res.sendFile(path.join(__dirname, '../../web/config.html'));
+        });
+
         // Main dashboard
         this.app.get('/', (req, res) => {
             res.sendFile(path.join(__dirname, '../../web/index.html'));
+        });
+
+        // Configuration Management API
+        this.setupConfigRoutes();
+    }
+
+    setupConfigRoutes() {
+        // Get full configuration (public - no sensitive data)
+        this.app.get('/api/config-manager', (req, res) => {
+            try {
+                res.json(this.configManager.getPublicConfig());
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get configuration schema/structure
+        this.app.get('/api/config-manager/schema', (req, res) => {
+            try {
+                res.json(this.configManager.getConfigSchema());
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Update full configuration
+        this.app.post('/api/config-manager', (req, res) => {
+            try {
+                const success = this.configManager.updateConfig(req.body);
+                if (success) {
+                    // Validate the new config
+                    const validation = this.configManager.validateConfig();
+                    res.json({ 
+                        success: true, 
+                        config: this.configManager.getPublicConfig(),
+                        validation
+                    });
+                } else {
+                    res.status(500).json({ error: 'Failed to save configuration' });
+                }
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Update specific section
+        this.app.patch('/api/config-manager/:section', (req, res) => {
+            try {
+                const { section } = req.params;
+                const success = this.configManager.updateSection(section, req.body);
+                if (success) {
+                    res.json({ 
+                        success: true, 
+                        section,
+                        config: this.configManager.getPublicConfig()
+                    });
+                } else {
+                    res.status(400).json({ error: `Invalid section: ${section}` });
+                }
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Reset to defaults
+        this.app.post('/api/config-manager/reset', (req, res) => {
+            try {
+                const success = this.configManager.resetToDefaults();
+                if (success) {
+                    res.json({ 
+                        success: true, 
+                        message: 'Configuration reset to defaults',
+                        config: this.configManager.getPublicConfig()
+                    });
+                } else {
+                    res.status(500).json({ error: 'Failed to reset configuration' });
+                }
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Validate current configuration
+        this.app.get('/api/config-manager/validate', (req, res) => {
+            try {
+                const validation = this.configManager.validateConfig();
+                res.json(validation);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Export configuration
+        this.app.get('/api/config-manager/export', (req, res) => {
+            try {
+                const format = req.query.format || 'json';
+                const result = this.configManager.exportConfig(format);
+                
+                if (result) {
+                    res.setHeader('Content-Type', result.contentType);
+                    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+                    res.send(result.content);
+                } else {
+                    res.status(400).json({ error: 'Invalid export format' });
+                }
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Import configuration
+        this.app.post('/api/config-manager/import', (req, res) => {
+            try {
+                const success = this.configManager.importConfig(req.body);
+                if (success) {
+                    const validation = this.configManager.validateConfig();
+                    res.json({ 
+                        success: true, 
+                        message: 'Configuration imported successfully',
+                        config: this.configManager.getPublicConfig(),
+                        validation
+                    });
+                } else {
+                    res.status(500).json({ error: 'Failed to import configuration' });
+                }
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get specific section
+        this.app.get('/api/config-manager/:section', (req, res) => {
+            try {
+                const { section } = req.params;
+                const config = this.configManager.getPublicConfig();
+                
+                if (config[section]) {
+                    res.json(config[section]);
+                } else {
+                    res.status(404).json({ error: `Section not found: ${section}` });
+                }
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
         });
     }
 
@@ -316,6 +2142,98 @@ class WebDashboard {
         // Handle errors
         this.liveTracker.on('error', (error) => {
             console.error('Live tracker error:', error.message);
+        });
+    }
+
+    setupBankrollEvents() {
+        // Handle bankroll updates
+        this.bankrollManager.on('bankrollUpdated', (data) => {
+            console.log(`💰 Bankroll updated: ${data.total} ${data.currency}`);
+        });
+
+        this.bankrollManager.on('fundsAdded', (data) => {
+            console.log(`➕ Funds added: ${data.amount} ${data.note ? `(${data.note})` : ''}`);
+        });
+
+        this.bankrollManager.on('fundsWithdrawn', (data) => {
+            console.log(`➖ Funds withdrawn: ${data.amount} ${data.note ? `(${data.note})` : ''}`);
+        });
+
+        this.bankrollManager.on('bookmakerUpdated', (data) => {
+            console.log(`🏦 Bookmaker updated: ${data.name} = ${data.balance}`);
+        });
+
+        this.bankrollManager.on('betPlaced', (data) => {
+            console.log(`📝 Bet placed: ${data.betId} - ${data.event} (${data.stakes.length} legs)`);
+        });
+
+        this.bankrollManager.on('betSettled', (data) => {
+            const emoji = data.actualProfit >= 0 ? '✅' : '❌';
+            console.log(`${emoji} Bet settled: ${data.betId} - Profit: ${data.actualProfit}`);
+        });
+
+        this.bankrollManager.on('betCancelled', (data) => {
+            console.log(`🚫 Bet cancelled: ${data.betId}`);
+        });
+    }
+
+    setupWebSocketEvents() {
+        // Handle WebSocket client connections
+        this.wsServer.on('clientConnected', (data) => {
+            console.log(`🔌 WebSocket client ${data.clientId} connected`);
+        });
+
+        this.wsServer.on('clientDisconnected', (data) => {
+            console.log(`🔌 WebSocket client ${data.clientId} disconnected`);
+        });
+
+        // Forward live tracker events to WebSocket clients
+        this.liveTracker.on('opportunity', (opp) => {
+            this.wsServer.broadcastLiveArbitrage(opp);
+        });
+
+        this.liveTracker.on('matchStarted', (match) => {
+            this.wsServer.broadcastLiveMatch({
+                ...match,
+                event: 'matchStarted'
+            });
+        });
+
+        this.liveTracker.on('matchEnded', (match) => {
+            this.wsServer.broadcastLiveMatch({
+                ...match,
+                event: 'matchEnded'
+            });
+        });
+
+        this.liveTracker.on('oddsChange', (data) => {
+            this.wsServer.broadcastOddsMovement({
+                type: 'liveOddsChange',
+                ...data
+            });
+        });
+
+        // Forward bankroll events
+        this.bankrollManager.on('bankrollUpdated', (data) => {
+            this.wsServer.broadcastBankrollUpdate(data);
+        });
+
+        this.bankrollManager.on('betPlaced', (data) => {
+            this.wsServer.broadcastAlert({
+                type: 'betPlaced',
+                severity: 'info',
+                message: `Bet placed: ${data.event}`,
+                data
+            });
+        });
+
+        this.bankrollManager.on('betSettled', (data) => {
+            this.wsServer.broadcastAlert({
+                type: 'betSettled',
+                severity: data.actualProfit >= 0 ? 'success' : 'warning',
+                message: `Bet settled: ${data.actualProfit >= 0 ? '+' : ''}${data.actualProfit}`,
+                data
+            });
         });
     }
 
@@ -407,17 +2325,61 @@ class WebDashboard {
     }
 
     async runAnalysis() {
+        this.logger?.info('Running manual analysis...', { category: 'analysis' });
         console.log('Running manual analysis...');
         const data = await this.fetcher.fetchAll();
         const opportunities = this.analyzer.analyze(data);
         this.latestOpportunities = opportunities;
         
+        this.logger?.info('Analysis complete', { 
+            category: 'analysis',
+            arbitrageCount: opportunities.arbitrage.length,
+            evCount: opportunities.positiveEV.length
+        });
+        
+        // Record analysis in state persistence
+        this.statePersistence.recordAnalysis(
+            opportunities.arbitrage.length + opportunities.positiveEV.length
+        );
+        
+        // Update active opportunities in state
+        this.statePersistence.updateActiveOpportunities([
+            ...opportunities.arbitrage,
+            ...opportunities.positiveEV
+        ]);
+        
+        // Record opportunities in audit trail
+        for (const arb of opportunities.arbitrage.slice(0, 5)) {
+            await this.audit?.recordOpportunityDetected({
+                id: arb.id,
+                event: arb.event,
+                profit: arb.profitPercent,
+                ev: arb.profitPercent,
+                bookmakers: arb.legs.map(l => l.bookmaker)
+            });
+            
+            // Record metrics
+            this.metrics.recordOpportunity('arbitrage', arb);
+        }
+        
+        for (const ev of opportunities.positiveEV.slice(0, 5)) {
+            this.metrics.recordOpportunity('ev', ev);
+        }
+        
         // Run odds movement analysis
+        this.logger?.info('Running odds movement analysis...', { category: 'analysis' });
         console.log('Running odds movement analysis...');
         try {
             this.latestMovementAnalysis = await this.movementTracker.analyze(data);
+            this.logger?.info('Movement analysis complete', { 
+                category: 'analysis',
+                significantMovements: this.latestMovementAnalysis.summary.significantMovements,
+                newArbitrage: this.latestMovementAnalysis.summary.newArbitrage,
+                newEV: this.latestMovementAnalysis.summary.newEV
+            });
             console.log(`Movement analysis complete: ${this.latestMovementAnalysis.summary.significantMovements} significant movements, ${this.latestMovementAnalysis.summary.newArbitrage} new arbitrage, ${this.latestMovementAnalysis.summary.newEV} new EV`);
         } catch (error) {
+            this.logger?.error('Movement analysis failed', { error: error.message, category: 'analysis' });
             console.error('Movement analysis failed:', error.message);
         }
         
@@ -428,6 +2390,19 @@ class WebDashboard {
             // Also send movement alerts
             if (this.latestMovementAnalysis) {
                 await this.sendMovementAlerts(this.latestMovementAnalysis);
+            }
+        }
+        
+        // Broadcast new opportunities via WebSocket
+        if (this.wsServer) {
+            // Broadcast arbitrage opportunities
+            for (const arb of opportunities.arbitrage.slice(0, 5)) {
+                this.wsServer.broadcastArbitrage(arb);
+            }
+            
+            // Broadcast +EV opportunities
+            for (const ev of opportunities.positiveEV.slice(0, 5)) {
+                this.wsServer.broadcastPositiveEV(ev);
             }
         }
         
@@ -511,40 +2486,193 @@ class WebDashboard {
     start() {
         const port = this.config.PORT || 3000;
         
-        this.app.listen(port, async () => {
+        const server = this.app.listen(port, async () => {
+            this.logger?.info(`Dashboard running at http://localhost:${port}`, { category: 'server', port });
             console.log(`Dashboard running at http://localhost:${port}`);
+            
+            // Initialize state persistence first
+            try {
+                const restored = await this.statePersistence.init();
+                if (restored) {
+                    this.logger?.info('Previous state restored', { category: 'state' });
+                    // Restore bankroll state if available
+                    if (this.statePersistence.state.bankroll) {
+                        this.logger?.info('Bankroll state restored', { 
+                            category: 'state',
+                            total: this.statePersistence.state.bankroll.totalBankroll 
+                        });
+                    }
+                }
+            } catch (error) {
+                this.logger?.error('Failed to initialize state persistence', { error: error.message, category: 'state' });
+            }
+            
+            // Initialize metrics collector
+            try {
+                await this.metrics.init();
+                this.logger?.info('Metrics collector initialized', { category: 'metrics' });
+                
+                // Set up metrics event handlers
+                this.metrics.on('snapshot', (snapshot) => {
+                    this.wsServer?.broadcastMetrics?.(snapshot);
+                });
+            } catch (error) {
+                this.logger?.error('Failed to initialize metrics collector', { error: error.message, category: 'metrics' });
+            }
+            
+            // Initialize opportunity exporter
+            try {
+                await this.exporter.loadHistory();
+                this.logger?.info('Opportunity exporter initialized', { category: 'export' });
+            } catch (error) {
+                this.logger?.error('Failed to initialize opportunity exporter', { error: error.message, category: 'export' });
+            }
+            
+            // Initialize bankroll manager
+            try {
+                await this.bankrollManager.init();
+                const summary = this.bankrollManager.getBankrollSummary();
+                this.logger?.info('Bankroll manager initialized', { 
+                    category: 'bankroll', 
+                    total: summary.totalBankroll,
+                    currency: summary.currency,
+                    bookmakers: summary.bookmakerCount 
+                });
+                console.log(`💰 Bankroll: ${summary.totalBankroll} ${summary.currency} across ${summary.bookmakerCount} bookmakers`);
+            } catch (error) {
+                this.logger?.error('Failed to initialize bankroll manager', { error: error.message, category: 'bankroll' });
+                console.error('Failed to initialize bankroll manager:', error.message);
+            }
             
             // Initialize live tracker
             try {
                 await this.liveTracker.init();
+                this.logger?.info('Live Match Tracker initialized', { category: 'live' });
                 console.log('📡 Live Match Tracker initialized');
                 
                 // Auto-start live tracking if configured
                 if (this.config.LIVE_TRACKING_AUTO_START === 'true') {
                     this.liveTracker.start();
+                    this.logger?.info('Live tracking auto-started', { category: 'live' });
                 }
             } catch (error) {
+                this.logger?.error('Failed to initialize live tracker', { error: error.message, category: 'live' });
                 console.error('Failed to initialize live tracker:', error.message);
+            }
+            
+            // Initialize WebSocket server (attached to HTTP server)
+            try {
+                await this.wsServer.init(server);
+                this.logger?.info('WebSocket server initialized', { category: 'websocket' });
+                console.log('🔌 WebSocket server initialized');
+            } catch (error) {
+                this.logger?.error('Failed to initialize WebSocket server', { error: error.message, category: 'websocket' });
+                console.error('Failed to initialize WebSocket server:', error.message);
+            }
+            
+            // Initialize settlement tracker
+            try {
+                await this.settlementTracker.init();
+                this.logger?.info('Bet Settlement Tracker initialized', { category: 'settlement' });
+                console.log('✅ Bet Settlement Tracker initialized');
+                
+                // Start auto-checker if configured
+                if (this.config.SETTLEMENT_AUTO_CHECK === 'true') {
+                    this.settlementTracker.start();
+                    this.logger?.info('Settlement auto-checker started', { category: 'settlement' });
+                }
+            } catch (error) {
+                this.logger?.error('Failed to initialize settlement tracker', { error: error.message, category: 'settlement' });
+                console.error('Failed to initialize settlement tracker:', error.message);
+            }
+            
+            // Initialize ML Odds Predictor
+            try {
+                await this.mlPredictor.init();
+                this.logger?.info('ML Odds Predictor initialized', { category: 'ml' });
+                console.log('🤖 ML Odds Predictor initialized');
+            } catch (error) {
+                this.logger?.error('Failed to initialize ML predictor', { error: error.message, category: 'ml' });
+                console.error('Failed to initialize ML predictor:', error.message);
+            }
+            
+            // Initialize Watchlist Manager
+            try {
+                await this.watchlistManager.init();
+                this.logger?.info('Watchlist Manager initialized', { category: 'watchlist' });
+                console.log('📋 Watchlist Manager initialized');
+            } catch (error) {
+                this.logger?.error('Failed to initialize watchlist manager', { error: error.message, category: 'watchlist' });
+                console.error('Failed to initialize watchlist manager:', error.message);
             }
         });
 
         // Schedule automatic updates
         if (this.config.UPDATE_CRON) {
             cron.schedule(this.config.UPDATE_CRON, async () => {
+                this.logger?.info('Running scheduled update', { category: 'scheduler' });
                 console.log('Running scheduled update...');
                 try {
                     await this.runAnalysis();
+                    this.logger?.info('Scheduled update completed', { category: 'scheduler' });
                 } catch (error) {
+                    this.logger?.error('Scheduled update failed', { error: error.message, category: 'scheduler' });
                     console.error('Scheduled update failed:', error);
                 }
             });
+            this.logger?.info(`Scheduled updates: ${this.config.UPDATE_CRON}`, { category: 'scheduler', cron: this.config.UPDATE_CRON });
             console.log(`Scheduled updates: ${this.config.UPDATE_CRON}`);
         }
     }
     
     async stop() {
+        this.logger?.info('Stopping dashboard...', { category: 'shutdown' });
         console.log('Stopping dashboard...');
+        
+        // Save final state before stopping
+        try {
+            // Update state with current data
+            const bankrollSummary = this.bankrollManager.getBankrollSummary();
+            this.statePersistence.updateBankroll(bankrollSummary);
+            
+            const pendingBets = Array.from(this.bankrollManager.pendingBets.values());
+            this.statePersistence.updatePendingBets(pendingBets);
+            
+            if (this.latestOpportunities) {
+                this.statePersistence.updateActiveOpportunities([
+                    ...this.latestOpportunities.arbitrage,
+                    ...this.latestOpportunities.positiveEV
+                ]);
+            }
+            
+            // Prepare shutdown (saves state)
+            await this.statePersistence.prepareShutdown();
+            this.logger?.info('State saved for shutdown', { category: 'shutdown' });
+        } catch (error) {
+            this.logger?.error('Failed to save state during shutdown', { error: error.message, category: 'shutdown' });
+        }
+        
         this.liveTracker.stop();
+        this.wsServer.stop();
+        this.settlementTracker.stop();
+        
+        // Shutdown metrics collector
+        try {
+            await this.metrics.shutdown();
+            this.logger?.info('Metrics collector shutdown', { category: 'shutdown' });
+        } catch (error) {
+            this.logger?.error('Failed to shutdown metrics collector', { error: error.message, category: 'shutdown' });
+        }
+        
+        // Save exporter history
+        try {
+            await this.exporter.saveHistory();
+            this.logger?.info('Exporter history saved', { category: 'shutdown' });
+        } catch (error) {
+            this.logger?.error('Failed to save exporter history', { error: error.message, category: 'shutdown' });
+        }
+        
+        this.logger?.info('Dashboard stopped', { category: 'shutdown' });
     }
 }
 
