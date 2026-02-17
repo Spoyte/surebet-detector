@@ -669,3 +669,440 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* ============================================
+   PWA & MOBILE STYLES
+   ============================================ */
+
+/* Safe area insets for notched devices */
+@supports (padding-top: env(safe-area-inset-top)) {
+    .nav {
+        padding-top: calc(1rem + env(safe-area-inset-top));
+    }
+    
+    .hero {
+        padding-top: calc(8rem + env(safe-area-inset-top));
+    }
+    
+    body.has-bottom-nav {
+        padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    }
+}
+
+/* Pull to refresh indicator */
+.pull-to-refresh {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    transform: translateY(-100%);
+    transition: transform 0.2s ease;
+    z-index: 99;
+    border-bottom: 1px solid var(--border);
+}
+
+.pull-to-refresh.ready {
+    color: var(--accent);
+}
+
+/* Connectivity indicator */
+.connectivity-indicator {
+    position: fixed;
+    top: calc(1rem + env(safe-area-inset-top, 0));
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.connectivity-indicator.online {
+    background: var(--accent);
+    color: #000;
+}
+
+.connectivity-indicator.offline {
+    background: var(--accent-danger);
+    color: #fff;
+}
+
+/* PWA Install button */
+.pwa-install-btn {
+    position: fixed;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0));
+    right: 1rem;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Notification permission button */
+.notification-permission-btn {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #fff;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.notification-permission-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+/* Update notification */
+.update-notification {
+    position: fixed;
+    bottom: calc(100px + env(safe-area-inset-bottom, 0));
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    z-index: 1000;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+.update-notification button {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+/* Bottom navigation for mobile */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: rgba(10, 10, 15, 0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom, 0));
+    z-index: 100;
+}
+
+.bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 1rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.7rem;
+    transition: color 0.2s;
+}
+
+.bottom-nav-item .icon {
+    font-size: 1.25rem;
+}
+
+.bottom-nav-item.active {
+    color: var(--accent);
+}
+
+body.has-bottom-nav .main {
+    padding-bottom: 100px;
+}
+
+/* Mobile-specific card adjustments */
+body.mobile .opportunity-card {
+    padding: 1rem;
+}
+
+body.mobile .opportunity-header {
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+body.mobile .opportunity-profit {
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+body.mobile .profit-value {
+    font-size: 1.25rem;
+}
+
+body.mobile .profit-label {
+    font-size: 0.7rem;
+}
+
+body.mobile .leg {
+    padding: 0.5rem;
+}
+
+/* Touch-friendly buttons */
+@media (pointer: coarse) {
+    .btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    .btn-icon {
+        min-height: 44px;
+        min-width: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .tab-btn {
+        min-height: 44px;
+    }
+    
+    .bottom-nav-item {
+        min-height: 50px;
+        min-width: 60px;
+    }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    .pwa-install-btn,
+    .update-notification,
+    .pull-to-refresh {
+        animation: none;
+    }
+    
+    .opportunity-card:hover {
+        transform: none;
+    }
+}
+
+/* Standalone mode (installed PWA) adjustments */
+@media (display-mode: standalone) {
+    .nav {
+        padding-top: calc(1rem + env(safe-area-inset-top));
+    }
+    
+    .hero {
+        padding-top: calc(8rem + env(safe-area-inset-top));
+    }
+    
+    /* Hide browser-specific elements */
+    .pwa-install-btn {
+        display: none !important;
+    }
+}
+
+/* Dark mode is default, but respect system preference */
+@media (prefers-color-scheme: light) {
+    /* Keep dark theme regardless - betting apps should be dark */
+}
+
+/* Live Match Section Styles */
+#live-section {
+    border-left: 3px solid var(--accent-danger);
+}
+
+.live-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: auto;
+}
+
+.live-controls .badge {
+    background: var(--surface-elevated);
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+}
+
+.live-controls .badge.active {
+    background: var(--accent-danger);
+    color: #fff;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.btn-small {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+.live-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.live-summary-cards .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: center;
+}
+
+.live-summary-cards .summary-card.live {
+    border-color: var(--accent-danger);
+}
+
+.live-summary-cards .summary-card.high-urgency {
+    border-color: #f59e0b;
+}
+
+.live-summary-cards .summary-card .summary-label {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.live-summary-cards .summary-card .summary-value {
+    display: block;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* Live Opportunity Cards */
+.opportunity-card.live-arbitrage {
+    border-left: 4px solid var(--accent-danger);
+}
+
+.opportunity-card.live-arbitrage .card-header {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+}
+
+.opportunity-card.live-arbitrage .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: var(--accent-danger);
+    color: #fff;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    animation: pulse 2s infinite;
+}
+
+.opportunity-card.live-arbitrage .urgency-high {
+    background: #dc2626;
+}
+
+.opportunity-card.live-arbitrage .urgency-medium {
+    background: #f59e0b;
+}
+
+.opportunity-card.live-arbitrage .urgency-low {
+    background: var(--text-muted);
+}
+
+.opportunity-card.live-arbitrage .score-display {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-top: 0.25rem;
+}
+
+.opportunity-card.live-arbitrage .time-remaining {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* Live Matches Table */
+#live-matches-table .status-live {
+    color: var(--accent-danger);
+    font-weight: 600;
+}
+
+#live-matches-table .status-halftime {
+    color: #f59e0b;
+}
+
+#live-matches-table .score-cell {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .live-summary-cards {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+    }
+    
+    .live-summary-cards .summary-card {
+        padding: 0.75rem;
+    }
+    
+    .live-summary-cards .summary-card .summary-value {
+        font-size: 1.5rem;
+    }
+    
+    .live-controls {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+
+/* Landscape mode on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+    .bottom-nav {
+        display: none;
+    }
+    
+    body.has-bottom-nav .main {
+        padding-bottom: 2rem;
+    }
+    
+    .summary-cards {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}

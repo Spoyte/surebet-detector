@@ -9,6 +9,7 @@ const PromotionsTracker = require('../promotions');
 const AlertConfig = require('../alert-config');
 const TaxExporter = require('../tax-exporter');
 const OddsMovementTracker = require('../odds-movement-tracker');
+const LiveMatchTracker = require('../live-match-tracker');
 
 class WebDashboard {
     constructor(config) {
@@ -20,8 +21,12 @@ class WebDashboard {
         this.alertConfig = new AlertConfig();
         this.taxExporter = new TaxExporter();
         this.movementTracker = new OddsMovementTracker(config);
+        this.liveTracker = new LiveMatchTracker(config);
         this.latestOpportunities = null;
         this.latestMovementAnalysis = null;
+        
+        // Setup live tracker event handlers
+        this.setupLiveTrackerEvents();
         
         // Setup middleware first
         this.app.use(express.json());
@@ -205,10 +210,147 @@ class WebDashboard {
             }
         });
 
+        // Live Match Tracking API
+        this.app.get('/api/live/matches', async (req, res) => {
+            try {
+                const matches = this.liveTracker.getActiveMatches();
+                res.json({
+                    timestamp: new Date().toISOString(),
+                    count: matches.length,
+                    matches
+                });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/live/opportunities', async (req, res) => {
+            try {
+                const opportunities = this.liveTracker.getOpportunities();
+                res.json({
+                    timestamp: new Date().toISOString(),
+                    count: opportunities.length,
+                    opportunities
+                });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/live/stats', async (req, res) => {
+            try {
+                const stats = this.liveTracker.getStats();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/live/matches/:matchId', async (req, res) => {
+            try {
+                const match = this.liveTracker.getMatch(req.params.matchId);
+                if (!match) {
+                    return res.status(404).json({ error: 'Match not found' });
+                }
+                res.json(match);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/live/start', async (req, res) => {
+            try {
+                if (!this.liveTracker.isRunning) {
+                    await this.liveTracker.init();
+                    this.liveTracker.start();
+                }
+                res.json({ success: true, status: this.liveTracker.getStats() });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/live/stop', async (req, res) => {
+            try {
+                this.liveTracker.stop();
+                res.json({ success: true, status: this.liveTracker.getStats() });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
         // Main dashboard
         this.app.get('/', (req, res) => {
             res.sendFile(path.join(__dirname, '../../web/index.html'));
         });
+    }
+
+    setupLiveTrackerEvents() {
+        // Handle new live opportunities
+        this.liveTracker.on('opportunity', (opp) => {
+            console.log(`🔴 LIVE ARBITRAGE: ${opp.eventName} - ${opp.profitPercent}% profit (${opp.urgency} urgency)`);
+            
+            // Send Telegram notification for high-urgency opportunities
+            if (opp.urgency === 'HIGH' && this.config.TELEGRAM_BOT_TOKEN && this.config.TELEGRAM_CHAT_ID) {
+                this.sendLiveOpportunityAlert(opp);
+            }
+        });
+
+        // Handle match start
+        this.liveTracker.on('matchStarted', (match) => {
+            console.log(`▶️  Live match started: ${match.eventName} (${match.sport})`);
+        });
+
+        // Handle match end
+        this.liveTracker.on('matchEnded', (match) => {
+            console.log(`⏹️  Live match ended: ${match.eventName}`);
+        });
+
+        // Handle odds changes
+        this.liveTracker.on('oddsChange', ({ matchId, changes }) => {
+            if (changes.length > 0) {
+                console.log(`📊 Odds changed in match ${matchId}: ${changes.length} changes`);
+            }
+        });
+
+        // Handle errors
+        this.liveTracker.on('error', (error) => {
+            console.error('Live tracker error:', error.message);
+        });
+    }
+
+    async sendLiveOpportunityAlert(opp) {
+        const axios = require('axios');
+        
+        let message = '🔴 *LIVE ARBITRAGE ALERT*\n\n';
+        message += `*${opp.eventName}*\n`;
+        message += `Sport: ${opp.sport.toUpperCase()}\n`;
+        message += `Status: ${opp.status}`;
+        if (opp.score && Object.keys(opp.score).length > 0) {
+            message += ` | Score: ${JSON.stringify(opp.score)}`;
+        }
+        message += '\n';
+        message += `Period: ${opp.period}\n`;
+        message += `Time Remaining: ~${opp.timeRemaining} min\n`;
+        message += `Profit: *${opp.profitPercent}%*\n`;
+        message += `Urgency: ${opp.urgency}\n\n`;
+        
+        message += '*Bets to place:*\n';
+        for (const leg of opp.legs) {
+            message += `• ${leg.outcome} @ ${leg.bookmaker} (${leg.odds})\n`;
+        }
+        
+        message += '\n⚡ Act fast - live odds change rapidly!';
+
+        try {
+            await axios.post(`https://api.telegram.org/bot${this.config.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                chat_id: this.config.TELEGRAM_CHAT_ID,
+                text: message,
+                parse_mode: 'Markdown'
+            });
+        } catch (error) {
+            console.error('Live opportunity alert failed:', error.message);
+        }
     }
 
     async loadMovementData() {
@@ -369,8 +511,21 @@ class WebDashboard {
     start() {
         const port = this.config.PORT || 3000;
         
-        this.app.listen(port, () => {
+        this.app.listen(port, async () => {
             console.log(`Dashboard running at http://localhost:${port}`);
+            
+            // Initialize live tracker
+            try {
+                await this.liveTracker.init();
+                console.log('📡 Live Match Tracker initialized');
+                
+                // Auto-start live tracking if configured
+                if (this.config.LIVE_TRACKING_AUTO_START === 'true') {
+                    this.liveTracker.start();
+                }
+            } catch (error) {
+                console.error('Failed to initialize live tracker:', error.message);
+            }
         });
 
         // Schedule automatic updates
@@ -385,6 +540,11 @@ class WebDashboard {
             });
             console.log(`Scheduled updates: ${this.config.UPDATE_CRON}`);
         }
+    }
+    
+    async stop() {
+        console.log('Stopping dashboard...');
+        this.liveTracker.stop();
     }
 }
 

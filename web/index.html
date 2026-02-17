@@ -2,9 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Surebet">
+    <meta name="description" content="Arbitrage and +EV betting opportunities detector">
+    
     <title>Surebet Detector — Arbitrage & +EV Finder</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png">
+    
+    <!-- Styles -->
     <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/public/2fa-styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
@@ -56,7 +72,58 @@
     </header>
 
     <main class="main">
-        <section id="opportunities" class="section">
+        <section class="section" id="live-section">
+            <div class="section-header">
+                <h2>🔴 Live Matches</h2>
+                <p>In-play arbitrage opportunities (real-time tracking)</p>
+                <div class="live-controls">
+                    <span class="badge" id="live-stats">Loading...</span>
+                    <button onclick="toggleLiveTracking()" class="btn btn-small" id="live-toggle-btn">Start Tracking</button>
+                </div>
+            </div>
+            
+            <div class="live-summary-cards" id="live-summary">
+                <div class="summary-card live">
+                    <span class="summary-label">Active Matches</span>
+                    <span class="summary-value" id="live-match-count">—</span>
+                </div>
+                <div class="summary-card arbitrage">
+                    <span class="summary-label">Live Arbitrage</span>
+                    <span class="summary-value" id="live-opp-count">—</span>
+                </div>
+                <div class="summary-card high-urgency">
+                    <span class="summary-label">High Urgency</span>
+                    <span class="summary-value" id="live-urgent-count">—</span>
+                </div>
+            </div>
+            
+            <div class="opportunities-grid" id="live-opportunities-list">
+                <div class="loading">Live tracking not started. Click "Start Tracking" to begin.</div>
+            </div>
+            
+            <div class="history-table-container" style="margin-top: 1.5rem;">
+                <h3>Active Live Matches</h3>
+                <table class="history-table" id="live-matches-table">
+                    <thead>
+                        <tr>
+                            <th>Match</th>
+                            <th>Sport</th>
+                            <th>Status</th>
+                            <th>Score</th>
+                            <th>Time</th>
+                            <th>Bookmakers</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" class="loading">No active matches</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="section" id="opportunities" class="section">
             <div class="section-header">
                 <h2>🎯 Arbitrage Opportunities</h2>
                 <p>Risk-free profit by betting on all outcomes</p>
@@ -364,5 +431,6 @@
     </div>
 
     <script src="/app.js"></script>
+    <script src="/2fa-ui.js"></script>
 </body>
 </html>
