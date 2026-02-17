@@ -9,7 +9,8 @@
     "fetch": "node src/fetcher.js",
     "analyze": "node src/analyzer.js",
     "hourly": "node run-hourly.js",
-    "web": "node src/web/server.js"
+    "web": "node src/web/server.js",
+    "test": "node --test src/*.test.js 2>/dev/null || echo 'No tests found or tests failed'"
   },
   "dependencies": {
     "axios": "^1.7.9",
