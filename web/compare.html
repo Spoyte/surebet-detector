@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <title>Compare Opportunities — Surebet Detector</title>
+    
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png">
+    
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --accent-primary: #10b981;
+            --accent-secondary: #3b82f6;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --accent-purple: #8b5cf6;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: #334155;
+            --winner-gold: #fbbf24;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+        
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+        
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--border-color);
+        }
+        
+        .btn-danger {
+            background: var(--accent-danger);
+            color: white;
+        }
+        
+        /* Recommendation Banner */
+        .recommendation-banner {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(59, 130, 246, 0.2));
+            border: 1px solid var(--accent-primary);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+        }
+        
+        .recommendation-main {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .recommendation-icon {
+            font-size: 48px;
+        }
+        
+        .recommendation-text h2 {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+        
+        .recommendation-text p {
+            color: var(--text-secondary);
+        }
+        
+        .recommendation-score {
+            text-align: center;
+        }
+        
+        .score-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+        
+        .score-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        
+        /* Comparison Table */
+        .comparison-container {
+            padding: 0 24px 24px;
+            overflow-x: auto;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            min-width: 800px;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .comparison-table th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 73px;
+            z-index: 10;
+        }
+        
+        .comparison-table th:first-child {
+            border-radius: 12px 0 0 0;
+        }
+        
+        .comparison-table th:last-child {
+            border-radius: 0 12px 0 0;
+        }
+        
+        .comparison-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        
+        .comparison-table td {
+            background: var(--bg-secondary);
+        }
+        
+        .comparison-table tr:last-child td:first-child {
+            border-radius: 0 0 0 12px;
+        }
+        
+        .comparison-table tr:last-child td:last-child {
+            border-radius: 0 0 12px 0;
+        }
+        
+        /* Opportunity Header Cells */
+        .opp-header-cell {
+            min-width: 200px;
+        }
+        
+        .opp-card-small {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .opp-card-small.winner {
+            border-color: var(--winner-gold);
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.2);
+        }
+        
+        .opp-match {
+            font-weight: 600;
+            margin-bottom: 8px;
+            line-height: 1.3;
+        }
+        
+        .opp-meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        
+        .opp-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .opp-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .opp-badge.arbitrage {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-primary);
+        }
+        
+        .opp-badge.ev {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--accent-secondary);
+        }
+        
+        .opp-badge.live {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-warning);
+        }
+        
+        .winner-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--winner-gold);
+            color: var(--bg-primary);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        
+        /* Metric Cells */
+        .metric-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        
+        .metric-value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .metric-value.best {
+            color: var(--accent-primary);
+        }
+        
+        .metric-value.worst {
+            color: var(--accent-danger);
+        }
+        
+        .metric-value.neutral {
+            color: var(--text-secondary);
+        }
+        
+        .metric-delta {
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        
+        .metric-delta.positive {
+            color: var(--accent-primary);
+        }
+        
+        .metric-delta.negative {
+            color: var(--accent-danger);
+        }
+        
+        /* Progress Bars */
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-fill.high {
+            background: var(--accent-primary);
+        }
+        
+        .progress-fill.medium {
+            background: var(--accent-warning);
+        }
+        
+        .progress-fill.low {
+            background: var(--accent-danger);
+        }
+        
+        /* Risk Indicators */
+        .risk-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .risk-low {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-primary);
+        }
+        
+        .risk-medium {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-warning);
+        }
+        
+        .risk-high {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-danger);
+        }
+        
+        /* Action Buttons Row */
+        .actions-row td {
+            padding-top: 24px;
+            background: transparent !important;
+        }
+        
+        .action-btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 10px;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 24px;
+        }
+        
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .empty-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .empty-text {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+        
+        /* Comparison Cart (Floating) */
+        .comparison-cart {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+        
+        .comparison-cart.hidden {
+            transform: translateX(-50%) translateY(200%);
+        }
+        
+        .cart-items {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .cart-item {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            position: relative;
+        }
+        
+        .cart-item .remove {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-danger);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            cursor: pointer;
+        }
+        
+        .cart-count {
+            font-weight: 600;
+        }
+        
+        /* Summary Cards */
+        .summary-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            padding: 0 24px 24px;
+        }
+        
+        .summary-card {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .summary-card h3 {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .summary-comparison {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        
+        .summary-item {
+            text-align: center;
+        }
+        
+        .summary-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .summary-value.best {
+            color: var(--accent-primary);
+        }
+        
+        .summary-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        
+        .summary-vs {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1 class="header-title">
+            <span>⚖️</span>
+            <span>Compare Opportunities</span>
+        </h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="clearComparison()">
+                🗑️ Clear All
+            </button>
+            <button class="btn btn-secondary" onclick="exportComparison()">
+                📥 Export
+            </button>
+            <a href="/" class="btn btn-primary">
+                ← Back to Dashboard
+            </a>
+        </div>
+    </header>
+    
+    <div id="content">
+        <!-- Content will be rendered by JS -->
+    </div>
+    
+    <script>
+        // Global state
+        let opportunities = [];
+        let comparisonData = null;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadComparison();
+        });
+        
+        function loadComparison() {
+            // Load from URL params or localStorage
+            const urlParams = new URLSearchParams(window.location.search);
+            const ids = urlParams.get('ids')?.split(',') || [];
+            
+            if (ids.length === 0) {
+                renderEmptyState();
+                return;
+            }
+            
+            // Fetch opportunities data
+            fetchOpportunities(ids).then(data => {
+                opportunities = data;
+                comparisonData = analyzeOpportunities(data);
+                renderComparison();
+            });
+        }
+        
+        async function fetchOpportunities(ids) {
+            // In production, this would fetch from API
+            // For now, use sample data
+            const sampleData = [
+                {
+                    id: '1',
+                    match: 'Manchester United vs Liverpool',
+                    sport: 'Football',
+                    league: 'Premier League',
+                    type: 'arbitrage',
+                    profit: 3.2,
+                    ev: null,
+                    quality: 85,
+                    timeToEvent: 2,
+                    reliability: 95,
+                    liquidity: 88,
+                    risk: 'low',
+                    bookmakers: ['Unibet', 'Betclic'],
+                    odds: { home: 2.1, draw: 3.4, away: 3.8 },
+                    isLive: false
+                },
+                {
+                    id: '2',
+                    match: 'Nadal vs Djokovic',
+                    sport: 'Tennis',
+                    league: 'Wimbledon',
+                    type: 'ev',
+                    profit: null,
+                    ev: 8.5,
+                    quality: 92,
+                    timeToEvent: 24,
+                    reliability: 88,
+                    liquidity: 95,
+                    risk: 'medium',
+                    bookmakers: ['Winamax', 'Betclic'],
+                    odds: { player1: 1.85, player2: 2.05 },
+                    isLive: false
+                },
+                {
+                    id: '3',
+                    match: 'Lakers vs Warriors',
+                    sport: 'Basketball',
+                    league: 'NBA',
+                    type: 'arbitrage',
+                    profit: 2.8,
+                    ev: null,
+                    quality: 78,
+                    timeToEvent: 6,
+                    reliability: 96,
+                    liquidity: 92,
+                    risk: 'low',
+                    bookmakers: ['Unibet', 'Winamax'],
+                    odds: { home: 1.95, away: 1.95 },
+                    isLive: true
+                }
+            ];
+            
+            return sampleData.filter(o => ids.includes(o.id));
+        }
+        
+        function analyzeOpportunities(opps) {
+            // Calculate scores for each opportunity
+            const analyzed = opps.map(opp => {
+                const profitScore = opp.profit ? opp.profit * 10 : (opp.ev || 0);
+                const qualityScore = opp.quality;
+                const timeScore = Math.max(0, 100 - (opp.timeToEvent * 2));
+                const reliabilityScore = opp.reliability;
+                const liquidityScore = opp.liquidity;
+                
+                // Weighted total score
+                const totalScore = (
+                    profitScore * 0.40 +
+                    qualityScore * 0.25 +
+                    timeScore * 0.15 +
+                    reliabilityScore * 0.10 +
+                    liquidityScore * 0.10
+                );
+                
+                return {
+                    ...opp,
+                    scores: {
+                        profit: profitScore,
+                        quality: qualityScore,
+                        time: timeScore,
+                        reliability: reliabilityScore,
+                        liquidity: liquidityScore,
+                        total: Math.round(totalScore)
+                    }
+                };
+            });
+            
+            // Find winner
+            const winner = analyzed.reduce((best, current) => 
+                current.scores.total > best.scores.total ? current : best
+            );
+            
+            // Calculate confidence (difference between winner and runner-up)
+            const sorted = [...analyzed].sort((a, b) => b.scores.total - a.scores.total);
+            const confidence = sorted.length > 1 
+                ? Math.min(95, Math.round((sorted[0].scores.total - sorted[1].scores.total) / sorted[0].scores.total * 100))
+                : 100;
+            
+            return {
+                opportunities: analyzed,
+                winner,
+                confidence,
+                metrics: calculateMetrics(analyzed)
+            };
+        }
+        
+        function calculateMetrics(opps) {
+            const metrics = {};
+            
+            // For each metric, find best and values
+            ['profit', 'ev', 'quality', 'timeToEvent', 'reliability', 'liquidity'].forEach(metric => {
+                const values = opps.map(o => o[metric]).filter(v => v != null);
+                if (values.length > 0) {
+                    const isLowerBetter = metric === 'timeToEvent' || metric === 'risk';
+                    metrics[metric] = {
+                        values: opps.map(o => ({ id: o.id, value: o[metric] })),
+                        best: isLowerBetter ? Math.min(...values) : Math.max(...values),
+                        worst: isLowerBetter ? Math.max(...values) : Math.min(...values)
+                    };
+                }
+            });
+            
+            return metrics;
+        }
+        
+        function renderEmptyState() {
+            document.getElementById('content').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">⚖️</div>
+                    <div class="empty-title">No opportunities to compare</div>
+                    <div class="empty-text">Add opportunities from the dashboard to compare them side-by-side</div>
+                    <a href="/" class="btn btn-primary">Browse Opportunities</a>
+                </div>
+            `;
+        }
+        
+        function renderComparison() {
+            const { winner, confidence, opportunities: opps, metrics } = comparisonData;
+            
+            let html = '';
+            
+            // Recommendation banner
+            html += `
+                <div class="recommendation-banner">
+                    <div class="recommendation-main">
+                        <span class="recommendation-icon">🏆</span>
+                        <div class="recommendation-text">
+                            <h2>Recommended: ${winner.match}</h2>
+                            <p>Best overall score based on profit, quality, timing, and reliability</p>
+                        </div>
+                    </div>
+                    <div class="recommendation-score">
+                        <div class="score-value">${winner.scores.total}</div>
+                        <div class="score-label">${confidence}% Confidence</div>
+                    </div>
+                </div>
+            `;
+            
+            // Summary section
+            html += renderSummarySection(opps, metrics);
+            
+            // Comparison table
+            html += `
+                <div class="comparison-container">
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 180px;">Metric</th>
+                                ${opps.map(opp => `
+                                    <th class="opp-header-cell">
+                                        <div class="opp-card-small ${opp.id === winner.id ? 'winner' : ''}" style="position: relative;">
+                                            ${opp.id === winner.id ? '<span class="winner-badge">👑</span>' : ''}
+                                            <div class="opp-match">${opp.match}</div>
+                                            <div class="opp-meta">${opp.sport} • ${opp.league}</div>
+                                            <div class="opp-badges">
+                                                <span class="opp-badge ${opp.type}">${opp.type === 'arbitrage' ? 'ARB' : '+EV'}</span>
+                                                ${opp.isLive ? '<span class="opp-badge live">LIVE</span>' : ''}
+                                            </div>
+                                        </div>
+                                    </th>
+                                `).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${renderMetricRow('Overall Score', opps, 'scores.total', metrics, true)}
+                            ${renderProfitRow(opps, metrics)}
+                            ${renderMetricRow('Quality Score', opps, 'quality', metrics, true)}
+                            ${renderMetricRow('Time to Event', opps, 'timeToEvent', metrics, false)}
+                            ${renderMetricRow('Reliability', opps, 'reliability', metrics, true, '%')}
+                            ${renderMetricRow('Liquidity', opps, 'liquidity', metrics, true, '%')}
+                            ${renderRiskRow(opps)}
+                            ${renderBookmakersRow(opps)}
+                            <tr class="actions-row">
+                                <td></td>
+                                ${opps.map(opp => `
+                                    <td>
+                                        <button class="action-btn btn-primary" onclick="placeBet('${opp.id}')">
+                                            Place Bet
+                                        </button>
+                                    </td>
+                                `).join('')}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            document.getElementById('content').innerHTML = html;
+        }
+        
+        function renderSummarySection(opps, metrics) {
+            // Find key differences to highlight
+            const profitValues = opps.map(o => o.profit || o.ev || 0);
+            const maxProfit = Math.max(...profitValues);
+            const minProfit = Math.min(...profitValues);
+            
+            return `
+                <div class="summary-section">
+                    <div class="summary-card">
+                        <h3>💰 Profit Comparison</h3>
+                        <div class="summary-comparison">
+                            <div class="summary-item">
+                                <div class="summary-value best">+${maxProfit.toFixed(1)}%</div>
+                                <div class="summary-label">Best</div>
+                            </div>
+                            <span class="summary-vs">vs</span>
+                            <div class="summary-item">
+                                <div class="summary-value">+${minProfit.toFixed(1)}%</div>
+                                <div class="summary-label">Lowest</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-card">
+                        <h3>⏱️ Time Urgency</h3>
+                        <div class="summary-comparison">
+                            ${opps.slice(0, 2).map(opp => `
+                                <div class="summary-item">
+                                    <div class="summary-value ${opp.timeToEvent < 3 ? 'worst' : ''}">${opp.timeToEvent}h</div>
+                                    <div class="summary-label">${opp.match.split(' ').slice(0, 2).join(' ')}</div>
+                                </div>
+                            `).join('<span class="summary-vs">vs</span>')}
+                        </div>
+                    </div>
+                    
+                    <div class="summary-card">
+                        <h3>🎯 Quality vs Risk</h3>
+                        <div class="summary-comparison">
+                            <div class="summary-item">
+                                <div class="summary-value">${Math.round(opps.reduce((a, o) => a + o.quality, 0) / opps.length)}</div>
+                                <div class="summary-label">Avg Quality</div>
+                            </div>
+                            <span class="summary-vs">•</span>
+                            <div class="summary-item">
+                                <div class="summary-value">${opps.filter(o => o.risk === 'low').length}</div>
+                                <div class="summary-label">Low Risk</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderMetricRow(label, opps, metricPath, metrics, higherIsBetter, suffix = '') {
+            const parts = metricPath.split('.');
+            const getValue = (obj) => parts.reduce((o, p) => o?.[p], obj);
+            
+            const values = opps.map(getValue);
+            const best = higherIsBetter ? Math.max(...values) : Math.min(...values);
+            const worst = higherIsBetter ? Math.min(...values) : Math.max(...values);
+            
+            return `
+                <tr>
+                    <td class="metric-label">${label}</td>
+                    ${opps.map(opp => {
+                        const value = getValue(opp);
+                        const isBest = value === best;
+                        const isWorst = value === worst && !isBest;
+                        
+                        return `
+                            <td>
+                                <div class="metric-value ${isBest ? 'best' : isWorst ? 'worst' : 'neutral'}">
+                                    ${value}${suffix}
+                                    ${isBest ? ' 🥇' : ''}
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill ${value > 80 ? 'high' : value > 50 ? 'medium' : 'low'}" 
+                                         style="width: ${Math.min(100, value)}%"></div>
+                                </div>
+                            </td>
+                        `;
+                    }).join('')}
+                </tr>
+            `;
+        }
+        
+        function renderProfitRow(opps, metrics) {
+            return `
+                <tr>
+                    <td class="metric-label">Expected Return</td>
+                    ${opps.map(opp => {
+                        const profit = opp.profit || opp.ev || 0;
+                        const isBest = profit === Math.max(...opps.map(o => o.profit || o.ev || 0));
+                        
+                        return `
+                            <td>
+                                <div class="metric-value ${isBest ? 'best' : 'neutral'}">
+                                    +${profit.toFixed(2)}%
+                                    ${opp.profit ? ' (Arbitrage)' : ' (+EV)'}
+                                    ${isBest ? ' 🥇' : ''}
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill high" style="width: ${Math.min(100, profit * 10)}%"></div>
+                                </div>
+                            </td>
+                        `;
+                    }).join('')}
+                </tr>
+            `;
+        }
+        
+        function renderRiskRow(opps) {
+            const riskLevels = { low: 1, medium: 2, high: 3 };
+            const bestRisk = Math.min(...opps.map(o => riskLevels[o.risk]));
+            
+            return `
+                <tr>
+                    <td class="metric-label">Risk Level</td>
+                    ${opps.map(opp => {
+                        const isBest = riskLevels[opp.risk] === bestRisk;
+                        return `
+                            <td>
+                                <span class="risk-indicator risk-${opp.risk}">
+                                    ${isBest ? '✓ ' : ''}${opp.risk.charAt(0).toUpperCase() + opp.risk.slice(1)}
+                                </span>
+                            </td>
+                        `;
+                    }).join('')}
+                </tr>
+            `;
+        }
+        
+        function renderBookmakersRow(opps) {
+            return `
+                <tr>
+                    <td class="metric-label">Bookmakers</td>
+                    ${opps.map(opp => `
+                        <td>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                ${opp.bookmakers.map(bm => `
+                                    <span style="padding: 6px 12px; background: var(--bg-tertiary); border-radius: 6px; font-size: 13px;">
+                                        ${bm}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </td>
+                    `).join('')}
+                </tr>
+            `;
+        }
+        
+        function placeBet(oppId) {
+            window.location.href = `/quick-bet.html?opp=${oppId}`;
+        }
+        
+        function clearComparison() {
+            if (confirm('Clear all comparisons?')) {
+                localStorage.removeItem('comparison-ids');
+                window.location.href = '/';
+            }
+        }
+        
+        function exportComparison() {
+            const data = {
+                exportedAt: new Date().toISOString(),
+                recommendation: comparisonData.winner,
+                confidence: comparisonData.confidence,
+                opportunities: comparisonData.opportunities
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `comparison-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

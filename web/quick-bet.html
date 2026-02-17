@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Quick Bet">
+    
+    <title>Quick Bet — Surebet Detector</title>
+    
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --accent-primary: #10b981;
+            --accent-secondary: #3b82f6;
+            --accent-danger: #ef4444;
+            --accent-warning: #f59e0b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: #334155;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding-bottom: 80px;
+        }
+        
+        /* Header */
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .icon-btn:active {
+            background: var(--bg-tertiary);
+            transform: scale(0.95);
+        }
+        
+        /* Connection Status */
+        .connection-status {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 99;
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .connection-status.online {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+        
+        .connection-status.offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+        
+        .connection-status.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        /* Quick Stats */
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            padding: 16px;
+        }
+        
+        .stat-card {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 16px 12px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        
+        .stat-value.arbitrage { color: var(--accent-primary); }
+        .stat-value.ev { color: var(--accent-secondary); }
+        .stat-value.live { color: var(--accent-warning); }
+        
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Filter Bar */
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            padding: 0 16px 16px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        
+        .filter-bar::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .filter-chip {
+            flex-shrink: 0;
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        
+        .filter-chip.active {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+            border-color: var(--accent-primary);
+        }
+        
+        .filter-chip:active {
+            transform: scale(0.95);
+        }
+        
+        /* Opportunity Cards */
+        .opportunities-list {
+            padding: 0 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .opp-card {
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        
+        .opp-card:active {
+            transform: scale(0.98);
+        }
+        
+        .opp-card.high-value {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+        }
+        
+        .opp-card.live {
+            border-color: var(--accent-warning);
+        }
+        
+        .opp-header {
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .opp-match {
+            flex: 1;
+        }
+        
+        .opp-teams {
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 1.3;
+            margin-bottom: 4px;
+        }
+        
+        .opp-meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .opp-badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .opp-badge.arbitrage {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-primary);
+        }
+        
+        .opp-badge.ev {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--accent-secondary);
+        }
+        
+        .opp-badge.live {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-warning);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .opp-profit {
+            text-align: right;
+        }
+        
+        .profit-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+        
+        .profit-label {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .opp-body {
+            padding: 16px;
+        }
+        
+        .bet-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .bet-option {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        
+        .bet-option:active {
+            transform: scale(0.97);
+        }
+        
+        .bet-option.selected {
+            border-color: var(--accent-primary);
+            background: rgba(16, 185, 129, 0.1);
+        }
+        
+        .bet-bookmaker {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        
+        .bet-outcome {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .bet-odds {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent-secondary);
+        }
+        
+        /* Quick Stake Input */
+        .stake-section {
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+        }
+        
+        .stake-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stake-input-wrapper {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        
+        .stake-input {
+            flex: 1;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        .stake-input:focus {
+            border-color: var(--accent-primary);
+        }
+        
+        .stake-quick-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        
+        .stake-quick-btn {
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .stake-quick-btn:active {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+            transform: scale(0.95);
+        }
+        
+        /* Action Buttons */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 16px;
+        }
+        
+        .btn {
+            padding: 16px;
+            border-radius: 14px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn:active {
+            transform: scale(0.97);
+        }
+        
+        .btn-primary {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-danger {
+            background: var(--accent-danger);
+            color: white;
+        }
+        
+        .btn-full {
+            grid-column: 1 / -1;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Swipe Actions */
+        .swipe-container {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .swipe-actions {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            padding-right: 16px;
+            gap: 8px;
+            background: var(--accent-danger);
+            border-radius: 0 20px 20px 0;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .swipe-actions.show {
+            transform: translateX(0);
+        }
+        
+        .swipe-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            background: white;
+            color: var(--accent-danger);
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+            z-index: 100;
+        }
+        
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 12px;
+            transition: color 0.2s;
+        }
+        
+        .nav-item.active {
+            color: var(--accent-primary);
+        }
+        
+        .nav-item:active {
+            transform: scale(0.95);
+        }
+        
+        .nav-icon {
+            font-size: 24px;
+        }
+        
+        /* Confirmation Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 200;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-sheet {
+            background: var(--bg-secondary);
+            border-radius: 24px 24px 0 0;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal-overlay.show .modal-sheet {
+            transform: translateY(0);
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .confirm-details {
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .confirm-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .confirm-row:last-child {
+            border-bottom: none;
+        }
+        
+        .confirm-label {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .confirm-value {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .confirm-value.profit {
+            color: var(--accent-primary);
+            font-size: 18px;
+        }
+        
+        .swipe-confirm {
+            background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
+            border: 2px dashed var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .swipe-confirm-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        
+        .swipe-progress {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            background: var(--accent-primary);
+            width: 0%;
+            transition: width 0.1s linear;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bg-primary);
+            font-weight: 700;
+        }
+        
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 70px;
+            left: 16px;
+            right: 16px;
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        
+        .toast {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            transform: translateX(-120%);
+            transition: transform 0.3s ease;
+            pointer-events: auto;
+            border-left: 4px solid var(--accent-primary);
+        }
+        
+        .toast.show {
+            transform: translateX(0);
+        }
+        
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.warning { border-left-color: var(--warning); }
+        
+        .toast-icon {
+            font-size: 24px;
+        }
+        
+        .toast-content {
+            flex: 1;
+        }
+        
+        .toast-title {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        
+        .toast-message {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        /* Loading State */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        .skeleton-card {
+            height: 200px;
+            margin-bottom: 12px;
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .empty-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .empty-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        /* Pull to refresh indicator */
+        .ptr-indicator {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50px);
+            background: var(--bg-secondary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            transition: transform 0.2s;
+            z-index: 50;
+        }
+        
+        .ptr-indicator.visible {
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        .ptr-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Connection Status -->
+    <div id="connection-status" class="connection-status online">
+        <span>●</span>
+        <span id="connection-text">Online</span>
+    </div>
+    
+    <!-- Pull to Refresh Indicator -->
+    <div id="ptr-indicator" class="ptr-indicator">
+        <div class="ptr-spinner"></div>
+        <span>Refreshing...</span>
+    </div>
+    
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+    
+    <!-- Header -->
+    <header class="header">
+        <h1 class="header-title">⚡ Quick Bet</h1>
+        <div class="header-actions">
+            <button class="icon-btn" onclick="refreshData()" title="Refresh">🔄</button>
+            <button class="icon-btn" onclick="showSettings()" title="Settings">⚙️</button>
+        </div>
+    </header>
+    
+    <!-- Quick Stats -->
+    <div class="quick-stats">
+        <div class="stat-card">
+            <div class="stat-value arbitrage" id="stat-arb">—</div>
+            <div class="stat-label">Arbitrage</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value ev" id="stat-ev">—</div>
+            <div class="stat-label">+EV</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value live" id="stat-live">—</div>
+            <div class="stat-label">Live</div>
+        </div>
+    </div>
+    
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <button class="filter-chip active" data-filter="all">All</button>
+        <button class="filter-chip" data-filter="arbitrage">Arbitrage</button>
+        <button class="filter-chip" data-filter="ev">+EV</button>
+        <button class="filter-chip" data-filter="live">🔴 Live</button>
+        <button class="filter-chip" data-filter="high-value">High Value</button>
+    </div>
+    
+    <!-- Opportunities List -->
+    <div id="opportunities-list" class="opportunities-list">
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="modal-overlay">
+        <div class="modal-sheet">
+            <div class="modal-header">
+                <h2 class="modal-title">Confirm Bet</h2>
+                <button class="modal-close" onclick="hideConfirmModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="confirm-details">
+                    <div class="confirm-row">
+                        <span class="confirm-label">Match</span>
+                        <span class="confirm-value" id="confirm-match">—</span>
+                    </div>
+                    <div class="confirm-row">
+                        <span class="confirm-label">Bookmaker</span>
+                        <span class="confirm-value" id="confirm-bookmaker">—</span>
+                    </div>
+                    <div class="confirm-row">
+                        <span class="confirm-label">Selection</span>
+                        <span class="confirm-value" id="confirm-selection">—</span>
+                    </div>
+                    <div class="confirm-row">
+                        <span class="confirm-label">Odds</span>
+                        <span class="confirm-value" id="confirm-odds">—</span>
+                    </div>
+                    <div class="confirm-row">
+                        <span class="confirm-label">Stake</span>
+                        <span class="confirm-value" id="confirm-stake">—</span>
+                    </div>
+                    <div class="confirm-row">
+                        <span class="confirm-label">Expected Profit</span>
+                        <span class="confirm-value profit" id="confirm-profit">—</span>
+                    </div>
+                </div>
+                
+                <div class="swipe-confirm" id="swipe-confirm">
+                    <div class="swipe-progress" id="swipe-progress">
+                        <span>RELEASE TO CONFIRM</span>
+                    </div>
+                    <span class="swipe-confirm-text">👆 Swipe to Confirm Bet</span>
+                </div>
+                
+                <button class="btn btn-secondary btn-full" onclick="hideConfirmModal()" style="margin-top: 16px;">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="/" class="nav-item">
+            <span class="nav-icon">📊</span>
+            <span>Dashboard</span>
+        </a>
+        <a href="/quick-bet.html" class="nav-item active">
+            <span class="nav-icon">⚡</span>
+            <span>Quick Bet</span>
+        </a>
+        <a href="/settlements" class="nav-item">
+            <span class="nav-icon">🎯</span>
+            <span>Bets</span>
+        </a>
+        <a href="/analytics" class="nav-item">
+            <span class="nav-icon">📈</span>
+            <span>Stats</span>
+        </a>
+    </nav>
+    
+    <script>
+        // Global state
+        let opportunities = [];
+        let currentFilter = 'all';
+        let selectedOpportunity = null;
+        let selectedBet = null;
+        let currentStake = 100;
+        let isOnline = navigator.onLine;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            init();
+        });
+        
+        async function init() {
+            setupEventListeners();
+            setupPullToRefresh();
+            setupConnectivityListeners();
+            await loadOpportunities();
+            startAutoRefresh();
+        }
+        
+        function setupEventListeners() {
+            // Filter chips
+            document.querySelectorAll('.filter-chip').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    currentFilter = chip.dataset.filter;
+                    renderOpportunities();
+                });
+            });
+            
+            // Swipe to confirm
+            setupSwipeToConfirm();
+        }
+        
+        function setupConnectivityListeners() {
+            window.addEventListener('online', () => {
+                isOnline = true;
+                showConnectionStatus(true);
+                refreshData();
+            });
+            
+            window.addEventListener('offline', () => {
+                isOnline = false;
+                showConnectionStatus(false);
+            });
+        }
+        
+        function showConnectionStatus(online) {
+            const status = document.getElementById('connection-status');
+            const text = document.getElementById('connection-text');
+            
+            status.className = `connection-status ${online ? 'online' : 'offline'}`;
+            text.textContent = online ? 'Online' : 'Offline';
+            status.classList.add('show');
+            
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 3000);
+        }
+        
+        function setupPullToRefresh() {
+            let startY = 0;
+            let isPulling = false;
+            const ptrIndicator = document.getElementById('ptr-indicator');
+            
+            document.addEventListener('touchstart', (e) => {
+                if (window.scrollY === 0) {
+                    startY = e.touches[0].clientY;
+                    isPulling = true;
+                }
+            }, { passive: true });
+            
+            document.addEventListener('touchmove', (e) => {
+                if (!isPulling) return;
+                
+                const currentY = e.touches[0].clientY;
+                const diff = currentY - startY;
+                
+                if (diff > 80 && window.scrollY === 0) {
+                    ptrIndicator.classList.add('visible');
+                }
+            }, { passive: true });
+            
+            document.addEventListener('touchend', async () => {
+                if (ptrIndicator.classList.contains('visible')) {
+                    await refreshData();
+                    ptrIndicator.classList.remove('visible');
+                }
+                isPulling = false;
+            });
+        }
+        
+        function setupSwipeToConfirm() {
+            const swipeArea = document.getElementById('swipe-confirm');
+            const progress = document.getElementById('swipe-progress');
+            let isDragging = false;
+            let startX = 0;
+            
+            swipeArea.addEventListener('touchstart', (e) => {
+                isDragging = true;
+                startX = e.touches[0].clientX;
+                progress.style.width = '0%';
+            }, { passive: true });
+            
+            swipeArea.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                
+                const currentX = e.touches[0].clientX;
+                const diff = currentX - startX;
+                const width = Math.min(100, Math.max(0, (diff / swipeArea.offsetWidth) * 100));
+                progress.style.width = width + '%';
+                
+                if (width >= 90) {
+                    confirmBet();
+                    isDragging = false;
+                }
+            }, { passive: true });
+            
+            swipeArea.addEventListener('touchend', () => {
+                isDragging = false;
+                progress.style.width = '0%';
+            });
+            
+            // Mouse support for testing
+            swipeArea.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+            });
+            
+            swipeArea.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const diff = e.clientX - startX;
+                const width = Math.min(100, Math.max(0, (diff / swipeArea.offsetWidth) * 100));
+                progress.style.width = width + '%';
+                
+                if (width >= 90) {
+                    confirmBet();
+                    isDragging = false;
+                }
+            });
+            
+            swipeArea.addEventListener('mouseup', () => {
+                isDragging = false;
+                progress.style.width = '0%';
+            });
+        }
+        
+        async function loadOpportunities() {
+            try {
+                const response = await fetch('/api/opportunities');
+                const data = await response.json();
+                
+                opportunities = [
+                    ...(data.arbitrage || []),
+                    ...(data.ev || [])
+                ].map(opp => ({
+                    ...opp,
+                    id: opp.id || Math.random().toString(36).substr(2, 9),
+                    type: opp.type || (opp.profit > 0 ? 'arbitrage' : 'ev'),
+                    isLive: opp.isLive || false,
+                    quality: opp.quality || calculateQuality(opp)
+                }));
+                
+                updateStats();
+                renderOpportunities();
+            } catch (error) {
+                console.error('Failed to load opportunities:', error);
+                showToast('Failed to load opportunities', 'error');
+                renderEmptyState();
+            }
+        }
+        
+        function calculateQuality(opp) {
+            const profit = opp.profit || 0;
+            const ev = opp.ev || 0;
+            if (profit > 5) return 90;
+            if (profit > 3) return 80;
+            if (profit > 1) return 70;
+            if (ev > 10) return 75;
+            if (ev > 5) return 65;
+            return 50;
+        }
+        
+        function updateStats() {
+            const arb = opportunities.filter(o => o.type === 'arbitrage' && !o.isLive).length;
+            const ev = opportunities.filter(o => o.type === 'ev' && !o.isLive).length;
+            const live = opportunities.filter(o => o.isLive).length;
+            
+            document.getElementById('stat-arb').textContent = arb;
+            document.getElementById('stat-ev').textContent = ev;
+            document.getElementById('stat-live').textContent = live;
+        }
+        
+        function renderOpportunities() {
+            const container = document.getElementById('opportunities-list');
+            
+            let filtered = opportunities;
+            
+            if (currentFilter === 'arbitrage') {
+                filtered = opportunities.filter(o => o.type === 'arbitrage');
+            } else if (currentFilter === 'ev') {
+                filtered = opportunities.filter(o => o.type === 'ev');
+            } else if (currentFilter === 'live') {
+                filtered = opportunities.filter(o => o.isLive);
+            } else if (currentFilter === 'high-value') {
+                filtered = opportunities.filter(o => (o.profit > 3) || (o.ev > 8));
+            }
+            
+            // Sort by quality and profit
+            filtered.sort((a, b) => {
+                const scoreA = (a.quality || 0) + (a.profit || a.ev || 0);
+                const scoreB = (b.quality || 0) + (b.profit || b.ev || 0);
+                return scoreB - scoreA;
+            });
+            
+            if (filtered.length === 0) {
+                renderEmptyState();
+                return;
+            }
+            
+            container.innerHTML = filtered.map(opp => renderOpportunityCard(opp)).join('');
+        }
+        
+        function renderOpportunityCard(opp) {
+            const isHighValue = (opp.profit > 3) || (opp.ev > 8);
+            const isLive = opp.isLive;
+            
+            let profitDisplay = '';
+            if (opp.profit) {
+                profitDisplay = `+${opp.profit.toFixed(2)}%`;
+            } else if (opp.ev) {
+                profitDisplay = `+${opp.ev.toFixed(1)}% EV`;
+            }
+            
+            const badgeClass = opp.type === 'arbitrage' ? 'arbitrage' : 'ev';
+            const badgeText = opp.type === 'arbitrage' ? 'ARB' : '+EV';
+            
+            let betOptions = '';
+            if (opp.legs && opp.legs.length >= 2) {
+                betOptions = opp.legs.slice(0, 2).map((leg, idx) => `
+                    <div class="bet-option" onclick="selectBet('${opp.id}', ${idx})">
+                        <div class="bet-bookmaker">${leg.bookmaker}</div>
+                        <div class="bet-outcome">${leg.outcome}</div>
+                        <div class="bet-odds">${leg.odds.toFixed(2)}</div>
+                    </div>
+                `).join('');
+            } else {
+                betOptions = `
+                    <div class="bet-option" onclick="selectBet('${opp.id}', 0)">
+                        <div class="bet-bookmaker">${opp.bookmaker || 'Bookmaker'}</div>
+                        <div class="bet-outcome">${opp.outcome || 'Bet Now'}</div>
+                        <div class="bet-odds">${opp.odds ? opp.odds.toFixed(2) : '—'}</div>
+                    </div>
+                    <div class="bet-option" onclick="showDetails('${opp.id}')">
+                        <div class="bet-bookmaker">View</div>
+                        <div class="bet-outcome">All Options</div>
+                        <div class="bet-odds">→</div>
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="opp-card ${isHighValue ? 'high-value' : ''} ${isLive ? 'live' : ''}" data-id="${opp.id}">
+                    <div class="opp-header">
+                        <div class="opp-match">
+                            <div class="opp-teams">${opp.event || opp.match || 'Unknown Match'}</div>
+                            <div class="opp-meta">
+                                <span>${opp.sport || 'Sports'}</span>
+                                <span>•</span>
+                                <span>${opp.league || ''}</span>
+                                ${isLive ? '<span class="opp-badge live">LIVE</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="opp-profit">
+                            <div class="profit-value">${profitDisplay}</div>
+                            <span class="opp-badge ${badgeClass}">${badgeText}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="opp-body">
+                        <div class="bet-options">
+                            ${betOptions}
+                        </div>
+                    </div>
+                    
+                    <div class="stake-section">
+                        <div class="stake-label">Quick Stake (€)</div>
+                        <div class="stake-input-wrapper">
+                            <input type="number" class="stake-input" id="stake-${opp.id}" 
+                                   value="${currentStake}" min="1" step="10"
+                                   onchange="updateStake('${opp.id}', this.value)">
+                        </div>
+                        <div class="stake-quick-buttons">
+                            <button class="stake-quick-btn" onclick="setStake('${opp.id}', 50)">€50</button>
+                            <button class="stake-quick-btn" onclick="setStake('${opp.id}', 100)">€100</button>
+                            <button class="stake-quick-btn" onclick="setStake('${opp.id}', 250)">€250</button>
+                            <button class="stake-quick-btn" onclick="setStake('${opp.id}', 500)">€500</button>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" onclick="bookmarkOpportunity('${opp.id}')">
+                            🔖 Save
+                        </button>
+                        <button class="btn btn-primary" onclick="prepareBet('${opp.id}')">
+                            Place Bet →
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderEmptyState() {
+            document.getElementById('opportunities-list').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <div class="empty-title">No opportunities found</div>
+                    <div class="empty-text">Try adjusting your filters or check back later</div>
+                </div>
+            `;
+        }
+        
+        function selectBet(oppId, legIndex) {
+            const opp = opportunities.find(o => o.id === oppId);
+            if (!opp || !opp.legs) return;
+            
+            selectedOpportunity = opp;
+            selectedBet = opp.legs[legIndex];
+            
+            // Update UI to show selection
+            document.querySelectorAll('.bet-option').forEach(el => el.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+        }
+        
+        function updateStake(oppId, value) {
+            currentStake = parseFloat(value) || 100;
+        }
+        
+        function setStake(oppId, amount) {
+            currentStake = amount;
+            const input = document.getElementById(`stake-${oppId}`);
+            if (input) input.value = amount;
+        }
+        
+        function prepareBet(oppId) {
+            const opp = opportunities.find(o => o.id === oppId);
+            if (!opp) return;
+            
+            selectedOpportunity = opp;
+            
+            // If no specific bet selected, use first leg
+            if (!selectedBet && opp.legs && opp.legs.length > 0) {
+                selectedBet = opp.legs[0];
+            }
+            
+            if (!selectedBet) {
+                showToast('Please select a bet option', 'warning');
+                return;
+            }
+            
+            // Calculate expected profit
+            const stake = parseFloat(document.getElementById(`stake-${oppId}`)?.value) || currentStake;
+            const expectedProfit = opp.profit ? (stake * opp.profit / 100) : (stake * (opp.ev || 0) / 100);
+            
+            // Update modal
+            document.getElementById('confirm-match').textContent = opp.event || opp.match || 'Unknown';
+            document.getElementById('confirm-bookmaker').textContent = selectedBet.bookmaker;
+            document.getElementById('confirm-selection').textContent = selectedBet.outcome;
+            document.getElementById('confirm-odds').textContent = selectedBet.odds.toFixed(2);
+            document.getElementById('confirm-stake').textContent = `€${stake.toFixed(2)}`;
+            document.getElementById('confirm-profit').textContent = `+€${expectedProfit.toFixed(2)}`;
+            
+            // Show modal
+            document.getElementById('confirm-modal').classList.add('show');
+        }
+        
+        function hideConfirmModal() {
+            document.getElementById('confirm-modal').classList.remove('show');
+            document.getElementById('swipe-progress').style.width = '0%';
+        }
+        
+        async function confirmBet() {
+            if (!selectedOpportunity || !selectedBet) return;
+            
+            const stake = currentStake;
+            
+            try {
+                const response = await fetch('/api/bets/place', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        opportunityId: selectedOpportunity.id,
+                        bookmaker: selectedBet.bookmaker,
+                        outcome: selectedBet.outcome,
+                        odds: selectedBet.odds,
+                        stake: stake,
+                        match: selectedOpportunity.event || selectedOpportunity.match,
+                        type: selectedOpportunity.type
+                    })
+                });
+                
+                if (response.ok) {
+                    showToast('Bet placed successfully!', 'success');
+                    hideConfirmModal();
+                    
+                    // Remove from list or mark as placed
+                    opportunities = opportunities.filter(o => o.id !== selectedOpportunity.id);
+                    renderOpportunities();
+                    updateStats();
+                } else {
+                    throw new Error('Failed to place bet');
+                }
+            } catch (error) {
+                console.error('Bet placement failed:', error);
+                showToast('Bet placement failed. Please try again.', 'error');
+            }
+            
+            selectedBet = null;
+        }
+        
+        function bookmarkOpportunity(oppId) {
+            // Save to localStorage for now
+            const bookmarks = JSON.parse(localStorage.getItem('surebet-bookmarks') || '[]');
+            if (!bookmarks.includes(oppId)) {
+                bookmarks.push(oppId);
+                localStorage.setItem('surebet-bookmarks', JSON.stringify(bookmarks));
+                showToast('Saved to bookmarks', 'success');
+            } else {
+                showToast('Already bookmarked', 'warning');
+            }
+        }
+        
+        function showDetails(oppId) {
+            // Navigate to full details view
+            window.location.href = `/?opp=${oppId}`;
+        }
+        
+        async function refreshData() {
+            showToast('Refreshing...', 'warning');
+            await loadOpportunities();
+            showToast('Updated!', 'success');
+        }
+        
+        function showSettings() {
+            window.location.href = '/config';
+        }
+        
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️'
+            };
+            
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type]}</span>
+                <div class="toast-content">
+                    <div class="toast-title">${type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Notice'}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Trigger animation
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+        
+        function startAutoRefresh() {
+            // Refresh every 30 seconds
+            setInterval(() => {
+                if (isOnline && document.visibilityState === 'visible') {
+                    loadOpportunities();
+                }
+            }, 30000);
+        }
+        
+        // Handle visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                loadOpportunities();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <title>Betting Journal — Surebet Detector</title>
+    
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png">
+    
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --accent-primary: #10b981;
+            --accent-secondary: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-orange: #f97316;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: #334155;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+        
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+        
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--border-color);
+        }
+        
+        /* Stats Bar */
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            padding: 16px 24px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Main Layout */
+        .main {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 0;
+            min-height: calc(100vh - 140px);
+        }
+        
+        @media (max-width: 900px) {
+            .main {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 24px;
+        }
+        
+        .sidebar-section {
+            margin-bottom: 32px;
+        }
+        
+        .sidebar-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        
+        .filter-list {
+            list-style: none;
+        }
+        
+        .filter-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            margin-bottom: 4px;
+        }
+        
+        .filter-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .filter-item.active {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+        
+        .filter-icon {
+            font-size: 18px;
+        }
+        
+        .tag-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .tag {
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tag:hover {
+            background: var(--border-color);
+        }
+        
+        .tag.active {
+            background: var(--accent-secondary);
+            color: white;
+        }
+        
+        /* Content */
+        .content {
+            padding: 24px;
+        }
+        
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        
+        .search-box {
+            position: relative;
+            flex: 1;
+            max-width: 400px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .search-input:focus {
+            border-color: var(--accent-primary);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+        
+        /* Entry Form */
+        .entry-form {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+            display: none;
+        }
+        
+        .entry-form.show {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .form-input, .form-textarea, .form-select {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 15px;
+            outline: none;
+        }
+        
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
+            border-color: var(--accent-primary);
+        }
+        
+        .form-textarea {
+            min-height: 150px;
+            resize: vertical;
+            font-family: inherit;
+            line-height: 1.6;
+        }
+        
+        .type-selector {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .type-option {
+            padding: 12px 20px;
+            background: var(--bg-tertiary);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        
+        .type-option:hover {
+            border-color: var(--border-color);
+        }
+        
+        .type-option.selected {
+            border-color: var(--accent-primary);
+            background: rgba(16, 185, 129, 0.1);
+        }
+        
+        .mood-selector {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .mood-option {
+            font-size: 28px;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.2s;
+            opacity: 0.5;
+        }
+        
+        .mood-option:hover {
+            opacity: 0.8;
+            background: var(--bg-tertiary);
+        }
+        
+        .mood-option.selected {
+            opacity: 1;
+            background: var(--bg-tertiary);
+            transform: scale(1.1);
+        }
+        
+        .tag-input {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+        }
+        
+        .tag-input input {
+            flex: 1;
+            min-width: 120px;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            padding: 6px;
+            outline: none;
+        }
+        
+        .tag-chip {
+            padding: 4px 10px;
+            background: var(--accent-secondary);
+            color: white;
+            border-radius: 16px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .tag-chip button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        
+        /* Entries List */
+        .entries-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .entry-card {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+        
+        .entry-card:hover {
+            border-color: var(--border-color);
+        }
+        
+        .entry-header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .entry-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .entry-type {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .entry-type.strategy {
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--accent-purple);
+        }
+        
+        .entry-type.lesson {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-primary);
+        }
+        
+        .entry-type.review {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--accent-secondary);
+        }
+        
+        .entry-type.general {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+        
+        .entry-date {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        
+        .entry-mood {
+            font-size: 20px;
+        }
+        
+        .entry-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .icon-btn:hover {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+        
+        .entry-body {
+            padding: 20px;
+        }
+        
+        .entry-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .entry-content {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            white-space: pre-wrap;
+        }
+        
+        .entry-footer {
+            padding: 16px 20px;
+            background: var(--bg-tertiary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .entry-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .entry-tag {
+            padding: 4px 10px;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .related-bets {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .related-bet {
+            padding: 4px 10px;
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+        }
+        
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .empty-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .empty-text {
+            color: var(--text-secondary);
+        }
+        
+        /* Date Group */
+        .date-group {
+            margin-bottom: 32px;
+        }
+        
+        .date-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1 class="header-title">📓 Betting Journal</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="exportJournal()">📥 Export</button>
+            <button class="btn btn-primary" onclick="toggleEntryForm()">✏️ New Entry</button>
+        </div>
+    </header>
+    
+    <div class="stats-bar">
+        <div class="stat-item">
+            <span class="stat-value" id="total-entries">0</span>
+            <span class="stat-label">Total Entries</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="this-week">0</span>
+            <span class="stat-label">This Week</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="strategies">0</span>
+            <span class="stat-label">Strategies</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="lessons">0</span>
+            <span class="stat-label">Lessons</span>
+        </div>
+    </div>
+    
+    <div class="main">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Filter by Type</h3>
+                <ul class="filter-list">
+                    <li class="filter-item active" data-filter="all" onclick="filterByType('all')">
+                        <span class="filter-icon">📋</span>
+                        <span>All Entries</span>
+                    </li>
+                    <li class="filter-item" data-filter="strategy" onclick="filterByType('strategy')">
+                        <span class="filter-icon">🎯</span>
+                        <span>Strategies</span>
+                    </li>
+                    <li class="filter-item" data-filter="lesson" onclick="filterByType('lesson')">
+                        <span class="filter-icon">💡</span>
+                        <span>Lessons Learned</span>
+                    </li>
+                    <li class="filter-item" data-filter="review" onclick="filterByType('review')">
+                        <span class="filter-icon">📝</span>
+                        <span>Bet Reviews</span>
+                    </li>
+                    <li class="filter-item" data-filter="general" onclick="filterByType('general')">
+                        <span class="filter-icon">💭</span>
+                        <span>General Notes</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Popular Tags</h3>
+                <div class="tag-cloud" id="tag-cloud">
+                    <!-- Tags populated by JS -->
+                </div>
+            </div>
+        </aside>
+        
+        <main class="content">
+            <!-- Entry Form -->
+            <div class="entry-form" id="entry-form">
+                <div class="form-group">
+                    <label class="form-label">Entry Type</label>
+                    <div class="type-selector">
+                        <div class="type-option" data-type="strategy" onclick="selectType(this)">
+                            <span>🎯</span>
+                            <span>Strategy</span>
+                        </div>
+                        <div class="type-option" data-type="lesson" onclick="selectType(this)">
+                            <span>💡</span>
+                            <span>Lesson</span>
+                        </div>
+                        <div class="type-option" data-type="review" onclick="selectType(this)">
+                            <span>📝</span>
+                            <span>Review</span>
+                        </div>
+                        <div class="type-option" data-type="general" onclick="selectType(this)">
+                            <span>💭</span>
+                            <span>General</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Title</label>
+                    <input type="text" class="form-input" id="entry-title" placeholder="Give your entry a title...">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">How are you feeling?</label>
+                    <div class="mood-selector">
+                        <span class="mood-option" data-mood="excited" onclick="selectMood(this)">🤩</span>
+                        <span class="mood-option" data-mood="happy" onclick="selectMood(this)">😊</span>
+                        <span class="mood-option" data-mood="neutral" onclick="selectMood(this)">😐</span>
+                        <span class="mood-option" data-mood="frustrated" onclick="selectMood(this)">😤</span>
+                        <span class="mood-option" data-mood="disappointed" onclick="selectMood(this)">😞</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Content</label>
+                    <textarea class="form-textarea" id="entry-content" placeholder="Write your thoughts, strategies, or lessons learned..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Tags</label>
+                    <div class="tag-input" id="tag-input">
+                        <input type="text" id="tag-input-field" placeholder="Add tags (press Enter)" onkeydown="handleTagInput(event)">
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="toggleEntryForm()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveEntry()">Save Entry</button>
+                </div>
+            </div>
+            
+            <!-- Search -->
+            <div class="content-header">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="search-input" placeholder="Search entries..." oninput="searchEntries(this.value)">
+                </div>
+            </div>
+            
+            <!-- Entries List -->
+            <div class="entries-list" id="entries-list">
+                <div class="empty-state">
+                    <div class="empty-icon">📓</div>
+                    <div class="empty-title">No entries yet</div>
+                    <div class="empty-text">Start documenting your betting journey by creating your first entry</div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script>
+        // Global state
+        let entries = [];
+        let currentFilter = 'all';
+        let currentTags = [];
+        let selectedType = null;
+        let selectedMood = null;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadEntries();
+            loadTags();
+            loadStats();
+        });
+        
+        async function loadEntries() {
+            try {
+                const response = await fetch('/api/journal');
+                entries = await response.json();
+                renderEntries();
+            } catch (error) {
+                console.error('Failed to load entries:', error);
+                // Load from localStorage as fallback
+                entries = JSON.parse(localStorage.getItem('journal-entries') || '[]');
+                renderEntries();
+            }
+        }
+        
+        async function loadTags() {
+            try {
+                const response = await fetch('/api/journal/tags');
+                const tags = await response.json();
+                renderTagCloud(tags);
+            } catch (error) {
+                // Extract tags from entries
+                const tags = [...new Set(entries.flatMap(e => e.tags || []))];
+                renderTagCloud(tags.map(t => ({ tag: t, count: 1 })));
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/journal/stats');
+                const stats = await response.json();
+                document.getElementById('total-entries').textContent = stats.total;
+                document.getElementById('this-week').textContent = stats.thisWeek;
+                document.getElementById('strategies').textContent = stats.byType?.strategy || 0;
+                document.getElementById('lessons').textContent = stats.byType?.lesson || 0;
+            } catch (error) {
+                // Calculate from local data
+                const now = new Date();
+                const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+                
+                document.getElementById('total-entries').textContent = entries.length;
+                document.getElementById('this-week').textContent = entries.filter(e => 
+                    new Date(e.timestamp) > weekAgo
+                ).length;
+                document.getElementById('strategies').textContent = entries.filter(e => 
+                    e.type === 'strategy'
+                ).length;
+                document.getElementById('lessons').textContent = entries.filter(e => 
+                    e.type === 'lesson'
+                ).length;
+            }
+        }
+        
+        function renderEntries() {
+            const container = document.getElementById('entries-list');
+            
+            let filtered = entries;
+            
+            if (currentFilter !== 'all') {
+                filtered = entries.filter(e => e.type === currentFilter);
+            }
+            
+            if (currentTags.length > 0) {
+                filtered = filtered.filter(e => 
+                    currentTags.some(tag => (e.tags || []).includes(tag))
+                );
+            }
+            
+            // Sort by date descending
+            filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📓</div>
+                        <div class="empty-title">No entries found</div>
+                        <div class="empty-text">Try adjusting your filters or create a new entry</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Group by date
+            const grouped = groupByDate(filtered);
+            
+            container.innerHTML = Object.entries(grouped).map(([date, items]) => `
+                <div class="date-group">
+                    <div class="date-header">${date}</div>
+                    ${items.map(entry => renderEntryCard(entry)).join('')}
+                </div>
+            `).join('');
+        }
+        
+        function groupByDate(items) {
+            const groups = {};
+            const today = new Date().toDateString();
+            const yesterday = new Date(Date.now() - 86400000).toDateString();
+            
+            items.forEach(item => {
+                const date = new Date(item.timestamp);
+                const dateStr = date.toDateString();
+                
+                let label;
+                if (dateStr === today) label = 'Today';
+                else if (dateStr === yesterday) label = 'Yesterday';
+                else label = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                
+                if (!groups[label]) groups[label] = [];
+                groups[label].push(item);
+            });
+            
+            return groups;
+        }
+        
+        function renderEntryCard(entry) {
+            const typeLabels = {
+                strategy: '🎯 Strategy',
+                lesson: '💡 Lesson',
+                review: '📝 Review',
+                general: '💭 General'
+            };
+            
+            const moodEmojis = {
+                excited: '🤩',
+                happy: '😊',
+                neutral: '😐',
+                frustrated: '😤',
+                disappointed: '😞'
+            };
+            
+            return `
+                <div class="entry-card" data-id="${entry.id}">
+                    <div class="entry-header">
+                        <div class="entry-meta">
+                            <span class="entry-type ${entry.type}">${typeLabels[entry.type] || entry.type}</span>
+                            <span class="entry-date">${formatTime(entry.timestamp)}</span>
+                            ${entry.mood ? `<span class="entry-mood" title="Feeling: ${entry.mood}">${moodEmojis[entry.mood]}</span>` : ''}
+                        </div>
+                        <div class="entry-actions">
+                            <button class="icon-btn" onclick="editEntry('${entry.id}')" title="Edit">✏️</button>
+                            <button class="icon-btn" onclick="deleteEntry('${entry.id}')" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                    
+                    <div class="entry-body">
+                        <div class="entry-title">${escapeHtml(entry.title)}</div>
+                        <div class="entry-content">${escapeHtml(entry.content)}</div>
+                    </div>
+                    
+                    ${(entry.tags?.length > 0 || entry.relatedBets?.length > 0) ? `
+                    <div class="entry-footer">
+                        <div class="entry-tags">
+                            ${(entry.tags || []).map(tag => `
+                                <span class="entry-tag">#${escapeHtml(tag)}</span>
+                            `).join('')}
+                        </div>
+                        ${entry.relatedBets?.length > 0 ? `
+                        <div class="related-bets">
+                            ${entry.relatedBets.map(bet => `
+                                <a href="/settlements?bet=${bet}" class="related-bet">Bet #${bet.slice(-4)}</a>
+                            `).join('')}
+                        </div>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        function renderTagCloud(tags) {
+            const container = document.getElementById('tag-cloud');
+            container.innerHTML = tags.map(t => `
+                <span class="tag ${currentTags.includes(t.tag) ? 'active' : ''}" 
+                      onclick="toggleTag('${t.tag}')">
+                    #${t.tag} (${t.count})
+                </span>
+            `).join('');
+        }
+        
+        function toggleEntryForm() {
+            const form = document.getElementById('entry-form');
+            form.classList.toggle('show');
+            
+            if (form.classList.contains('show')) {
+                document.getElementById('entry-title').focus();
+            }
+        }
+        
+        function selectType(element) {
+            document.querySelectorAll('.type-option').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            selectedType = element.dataset.type;
+        }
+        
+        function selectMood(element) {
+            document.querySelectorAll('.mood-option').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            selectedMood = element.dataset.mood;
+        }
+        
+        function handleTagInput(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const input = event.target;
+                const tag = input.value.trim();
+                
+                if (tag && !currentTags.includes(tag)) {
+                    currentTags.push(tag);
+                    renderTagInput();
+                }
+                
+                input.value = '';
+            }
+        }
+        
+        function renderTagInput() {
+            const container = document.getElementById('tag-input');
+            const input = container.querySelector('input');
+            
+            const chips = currentTags.map(tag => `
+                <span class="tag-chip">
+                    ${escapeHtml(tag)}
+                    <button onclick="removeTag('${tag}')">×</button>
+                </span>
+            `).join('');
+            
+            container.innerHTML = chips + `
+                <input type="text" id="tag-input-field" 
+                       placeholder="${currentTags.length ? 'Add more...' : 'Add tags (press Enter)'}" 
+                       onkeydown="handleTagInput(event)">
+            `;
+            
+            container.querySelector('input').focus();
+        }
+        
+        function removeTag(tag) {
+            currentTags = currentTags.filter(t => t !== tag);
+            renderTagInput();
+        }
+        
+        async function saveEntry() {
+            const title = document.getElementById('entry-title').value.trim();
+            const content = document.getElementById('entry-content').value.trim();
+            
+            if (!title || !content) {
+                alert('Please enter both title and content');
+                return;
+            }
+            
+            if (!selectedType) {
+                alert('Please select an entry type');
+                return;
+            }
+            
+            const entry = {
+                id: Date.now().toString(),
+                timestamp: new Date().toISOString(),
+                type: selectedType,
+                title,
+                content,
+                mood: selectedMood,
+                tags: currentTags
+            };
+            
+            try {
+                const response = await fetch('/api/journal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(entry)
+                });
+                
+                if (response.ok) {
+                    entries.unshift(entry);
+                    renderEntries();
+                    loadStats();
+                    resetForm();
+                    toggleEntryForm();
+                }
+            } catch (error) {
+                // Save to localStorage as fallback
+                entries.unshift(entry);
+                localStorage.setItem('journal-entries', JSON.stringify(entries));
+                renderEntries();
+                loadStats();
+                resetForm();
+                toggleEntryForm();
+            }
+        }
+        
+        function resetForm() {
+            document.getElementById('entry-title').value = '';
+            document.getElementById('entry-content').value = '';
+            currentTags = [];
+            selectedType = null;
+            selectedMood = null;
+            
+            document.querySelectorAll('.type-option, .mood-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            renderTagInput();
+        }
+        
+        function filterByType(type) {
+            currentFilter = type;
+            
+            document.querySelectorAll('.filter-item').forEach(el => {
+                el.classList.toggle('active', el.dataset.filter === type);
+            });
+            
+            renderEntries();
+        }
+        
+        function toggleTag(tag) {
+            if (currentTags.includes(tag)) {
+                currentTags = currentTags.filter(t => t !== tag);
+            } else {
+                currentTags.push(tag);
+            }
+            
+            renderTagCloud([...new Set(entries.flatMap(e => e.tags || []))].map(t => ({
+                tag: t,
+                count: entries.filter(e => (e.tags || []).includes(t)).length
+            })));
+            
+            renderEntries();
+        }
+        
+        function searchEntries(query) {
+            if (!query.trim()) {
+                renderEntries();
+                return;
+            }
+            
+            const lower = query.toLowerCase();
+            const filtered = entries.filter(e => 
+                e.title.toLowerCase().includes(lower) ||
+                e.content.toLowerCase().includes(lower) ||
+                (e.tags || []).some(t => t.toLowerCase().includes(lower))
+            );
+            
+            const container = document.getElementById('entries-list');
+            container.innerHTML = filtered.map(entry => renderEntryCard(entry)).join('');
+        }
+        
+        async function deleteEntry(id) {
+            if (!confirm('Delete this entry?')) return;
+            
+            try {
+                await fetch(`/api/journal/${id}`, { method: 'DELETE' });
+            } catch (error) {
+                // Ignore error
+            }
+            
+            entries = entries.filter(e => e.id !== id);
+            localStorage.setItem('journal-entries', JSON.stringify(entries));
+            renderEntries();
+            loadStats();
+        }
+        
+        function editEntry(id) {
+            const entry = entries.find(e => e.id === id);
+            if (!entry) return;
+            
+            document.getElementById('entry-title').value = entry.title;
+            document.getElementById('entry-content').value = entry.content;
+            currentTags = [...(entry.tags || [])];
+            selectedType = entry.type;
+            selectedMood = entry.mood;
+            
+            // Update UI
+            document.querySelectorAll('.type-option').forEach(el => {
+                el.classList.toggle('selected', el.dataset.type === entry.type);
+            });
+            
+            document.querySelectorAll('.mood-option').forEach(el => {
+                el.classList.toggle('selected', el.dataset.mood === entry.mood);
+            });
+            
+            renderTagInput();
+            
+            // Show form and remove old entry
+            document.getElementById('entry-form').classList.add('show');
+            deleteEntry(id);
+        }
+        
+        function exportJournal() {
+            const data = {
+                exportedAt: new Date().toISOString(),
+                entries
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `betting-journal-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
