@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bookmaker API Key Management - Surebet Detector</title>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-tertiary: #334155;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --accent-primary: #3b82f6;
+      --accent-success: #10b981;
+      --accent-warning: #f59e0b;
+      --accent-danger: #ef4444;
+      --border-color: #475569;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 30px;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+    }
+
+    .back-link {
+      color: var(--accent-primary);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid var(--border-color);
+    }
+
+    .stat-card h3 {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+    }
+
+    .stat-card.success .stat-value { color: var(--accent-success); }
+    .stat-card.warning .stat-value { color: var(--accent-warning); }
+    .stat-card.danger .stat-value { color: var(--accent-danger); }
+    .stat-card.info .stat-value { color: var(--accent-primary); }
+
+    /* Action Bar */
+    .action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent-primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+      background: #475569;
+    }
+
+    .btn-success {
+      background: var(--accent-success);
+      color: white;
+    }
+
+    .btn-danger {
+      background: var(--accent-danger);
+      color: white;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 0.75rem;
+    }
+
+    /* Keys Table */
+    .keys-table {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+    }
+
+    .table-header {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.5fr;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--bg-tertiary);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+    }
+
+    .key-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.5fr;
+      gap: 16px;
+      padding: 16px 20px;
+      border-top: 1px solid var(--border-color);
+      align-items: center;
+    }
+
+    .key-row:hover {
+      background: rgba(255,255,255,0.02);
+    }
+
+    .bookmaker-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .bookmaker-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: var(--bg-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .bookmaker-name {
+      font-weight: 500;
+    }
+
+    .bookmaker-id {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .status-active {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--accent-success);
+    }
+
+    .status-inactive {
+      background: rgba(148, 163, 184, 0.2);
+      color: var(--text-secondary);
+    }
+
+    .status-working {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--accent-success);
+    }
+
+    .status-failed {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--accent-danger);
+    }
+
+    .status-untested {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--accent-warning);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .status-working .status-dot { background: var(--accent-success); }
+    .status-failed .status-dot { background: var(--accent-danger); }
+    .status-untested .status-dot { background: var(--accent-warning); }
+
+    .rate-limit-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-tertiary);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .rate-limit-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    .rate-limit-fill.low { background: var(--accent-success); }
+    .rate-limit-fill.medium { background: var(--accent-warning); }
+    .rate-limit-fill.high { background: var(--accent-danger); }
+
+    .rate-limit-text {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: var(--bg-secondary);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow: hidden;
+      transform: scale(0.95);
+      transition: transform 0.3s;
+    }
+
+    .modal-overlay.active .modal {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h2 {
+      font-size: 1.25rem;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      max-height: 60vh;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 0.875rem;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+    }
+
+    .form-hint {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 6px;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .empty-state-icon {
+      font-size: 4rem;
+      margin-bottom: 16px;
+    }
+
+    .empty-state h3 {
+      font-size: 1.25rem;
+      margin-bottom: 8px;
+    }
+
+    .empty-state p {
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1100;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      padding: 16px 20px;
+      border-radius: 8px;
+      color: white;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slideIn 0.3s ease;
+      min-width: 300px;
+    }
+
+    .toast.success { background: var(--accent-success); }
+    .toast.error { background: var(--accent-danger); }
+    .toast.warning { background: var(--accent-warning); }
+    .toast.info { background: var(--accent-primary); }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .table-header,
+      .key-row {
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+      }
+      
+      .table-header > :nth-child(5),
+      .key-row > :nth-child(5) {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .table-header,
+      .key-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      
+      .table-header > :nth-child(3),
+      .table-header > :nth-child(4),
+      .key-row > :nth-child(3),
+      .key-row > :nth-child(4) {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <a href="index.html" class="back-link">← Back to Dashboard</a>
+      <h1>🔑 Bookmaker API Key Management</h1>
+    </header>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card info">
+        <h3>Total Keys</h3>
+        <div class="stat-value" id="stat-total">0</div>
+      </div>
+      <div class="stat-card success">
+        <h3>Active</h3>
+        <div class="stat-value" id="stat-active">0</div>
+      </div>
+      <div class="stat-card warning">
+        <h3>Untested</h3>
+        <div class="stat-value" id="stat-untested">0</div>
+      </div>
+      <div class="stat-card danger">
+        <h3>Failed</h3>
+        <div class="stat-value" id="stat-failed">0</div>
+      </div>
+    </div>
+
+    <!-- Action Bar -->
+    <div class="action-bar">
+      <div>
+        <button class="btn btn-secondary" onclick="testAllKeys()">
+          🧪 Test All Connections
+        </button>
+      </div>
+      <button class="btn btn-primary" onclick="openAddModal()">
+        ➕ Add Bookmaker
+      </button>
+    </div>
+
+    <!-- Keys Table -->
+    <div class="keys-table" id="keys-table">
+      <div class="table-header">
+        <span>Bookmaker</span>
+        <span>Status</span>
+        <span>Connection</span>
+        <span>Rate Limit</span>
+        <span>Usage</span>
+        <span>Actions</span>
+      </div>
+      <div id="keys-list">
+        <!-- Keys will be loaded here -->
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="empty-state" style="display: none;">
+      <div class="empty-state-icon">🔑</div>
+      <h3>No API Keys Configured</h3>
+      <p>Add your first bookmaker API key to start detecting arbitrage opportunities.</p>
+      <button class="btn btn-primary" onclick="openAddModal()">
+        Add Your First Key
+      </button>
+    </div>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="key-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Add Bookmaker</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="key-form">
+          <div class="form-group">
+            <label for="bookmaker-select">Bookmaker *</label>
+            <select id="bookmaker-select" required>
+              <option value="">Select a bookmaker...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="api-key">API Key *</label>
+            <input type="password" id="api-key" placeholder="Enter your API key" required>
+            <div class="form-hint">Your API key from the bookmaker developer portal</div>
+          </div>
+
+          <div class="form-group">
+            <label for="api-secret">API Secret (Optional)</label>
+            <input type="password" id="api-secret" placeholder="Enter API secret if required">
+          </div>
+
+          <div class="form-group">
+            <label for="app-key">App Key (Optional)</label>
+            <input type="text" id="app-key" placeholder="Enter app key if required">
+            <div class="form-hint">Some bookmakers require an additional app key</div>
+          </div>
+
+          <div class="form-group">
+            <label for="custom-url">Custom Base URL (Optional)</label>
+            <input type="url" id="custom-url" placeholder="https://api.example.com">
+          </div>
+
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="is-active" checked>
+              Active
+            </label>
+            <div class="form-hint">Inactive keys won't be used for fetching odds</div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveKey()">Save Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script>
+    // State
+    let keys = [];
+    let availableBookmakers = [];
+    let editingKey = null;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadKeys();
+      loadAvailableBookmakers();
+    });
+
+    // Load keys from API
+    async function loadKeys() {
+      try {
+        const response = await fetch('/api/keys');
+        const data = await response.json();
+        keys = data.keys || [];
+        updateStats(data.stats);
+        renderKeys();
+      } catch (error) {
+        showToast('Failed to load keys', 'error');
+        console.error(error);
+      }
+    }
+
+    // Load available bookmakers
+    async function loadAvailableBookmakers() {
+      try {
+        const response = await fetch('/api/keys/available');
+        const data = await response.json();
+        availableBookmakers = data.bookmakers || [];
+        populateBookmakerSelect();
+      } catch (error) {
+        console.error('Failed to load available bookmakers:', error);
+      }
+    }
+
+    // Populate bookmaker select dropdown
+    function populateBookmakerSelect() {
+      const select = document.getElementById('bookmaker-select');
+      select.innerHTML = '<option value="">Select a bookmaker...</option>';
+      
+      availableBookmakers.forEach(bm => {
+        const option = document.createElement('option');
+        option.value = bm.id;
+        option.textContent = `${bm.name} ${bm.isConfigured ? '(Already configured)' : ''}`;
+        option.disabled = bm.isConfigured;
+        select.appendChild(option);
+      });
+    }
+
+    // Update statistics
+    function updateStats(stats) {
+      document.getElementById('stat-total').textContent = stats?.totalKeys || 0;
+      document.getElementById('stat-active').textContent = stats?.activeKeys || 0;
+      document.getElementById('stat-untested').textContent = stats?.untestedKeys || 0;
+      document.getElementById('stat-failed').textContent = stats?.failedKeys || 0;
+    }
+
+    // Render keys list
+    function renderKeys() {
+      const container = document.getElementById('keys-list');
+      const emptyState = document.getElementById('empty-state');
+      const table = document.getElementById('keys-table');
+
+      if (keys.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        table.style.display = 'none';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      table.style.display = 'block';
+
+      container.innerHTML = keys.map(key => `
+        <div class="key-row">
+          <div class="bookmaker-info">
+            <div class="bookmaker-icon">${key.bookmakerName?.slice(0, 2) || '??'}</div>
+            <div>
+              <div class="bookmaker-name">${key.bookmakerName}</div>
+              <div class="bookmaker-id">${key.bookmakerId} • ${key.apiKeyMasked || '***'}</div>
+            </div>
+          </div>
+          
+          <div>
+            <span class="status-badge ${key.isActive ? 'status-active' : 'status-inactive'}">
+              <span class="status-dot"></span>
+              ${key.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </div>
+          
+          <div>
+            <span class="status-badge status-${key.testStatus || 'untested'}">
+              <span class="status-dot"></span>
+              ${key.testStatus === 'working' ? 'Working' : 
+                key.testStatus === 'failed' ? 'Failed' : 'Untested'}
+            </span>
+          </div>
+          
+          <div>
+            <div class="rate-limit-bar">
+              <div class="rate-limit-fill ${getRateLimitClass(key.rateLimit)}" 
+                   style="width: ${key.rateLimit?.utilizationPercent || 0}%"></div>
+            </div>
+            <div class="rate-limit-text">
+              ${key.rateLimit?.currentUsage || 0} / ${key.rateLimit?.limit || 0} req/min
+            </div>
+          </div>
+          
+          <div>
+            <div style="font-size: 0.875rem;">${key.requestCount?.toLocaleString() || 0} requests</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary);">
+              ${key.errorCount || 0} errors
+            </div>
+          </div>
+          
+          <div class="actions">
+            <button class="btn btn-sm btn-secondary" onclick="testKey('${key.bookmakerId}')" title="Test">
+              🧪
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="toggleKey('${key.bookmakerId}', ${!key.isActive})" title="${key.isActive ? 'Deactivate' : 'Activate'}">
+              ${key.isActive ? '⏸️' : '▶️'}
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="rotateKey('${key.bookmakerId}')" title="Rotate Key">
+              🔄
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="deleteKey('${key.bookmakerId}')" title="Delete">
+              🗑️
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Get rate limit color class
+    function getRateLimitClass(rateLimit) {
+      if (!rateLimit) return 'low';
+      const pct = parseFloat(rateLimit.utilizationPercent);
+      if (pct > 80) return 'high';
+      if (pct > 50) return 'medium';
+      return 'low';
+    }
+
+    // Modal functions
+    function openAddModal() {
+      editingKey = null;
+      document.getElementById('modal-title').textContent = 'Add Bookmaker';
+      document.getElementById('key-form').reset();
+      document.getElementById('bookmaker-select').disabled = false;
+      document.getElementById('key-modal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('key-modal').classList.remove('active');
+      editingKey = null;
+    }
+
+    // Save key
+    async function saveKey() {
+      const bookmakerId = document.getElementById('bookmaker-select').value;
+      const apiKey = document.getElementById('api-key').value;
+      const apiSecret = document.getElementById('api-secret').value;
+      const appKey = document.getElementById('app-key').value;
+      const customUrl = document.getElementById('custom-url').value;
+      const isActive = document.getElementById('is-active').checked;
+
+      if (!bookmakerId || !apiKey) {
+        showToast('Please fill in required fields', 'error');
+        return;
+      }
+
+      const keyData = {
+        apiKey,
+        apiSecret: apiSecret || undefined,
+        appKey: appKey || undefined,
+        baseUrl: customUrl || undefined,
+        isActive
+      };
+
+      try {
+        const response = await fetch(`/api/keys/${bookmakerId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(keyData)
+        });
+
+        if (response.ok) {
+          showToast('Key saved successfully', 'success');
+          closeModal();
+          loadKeys();
+          loadAvailableBookmakers(); // Refresh to update configured status
+        } else {
+          const error = await response.json();
+          showToast(error.message || 'Failed to save key', 'error');
+        }
+      } catch (error) {
+        showToast('Failed to save key', 'error');
+        console.error(error);
+      }
+    }
+
+    // Test key
+    async function testKey(bookmakerId) {
+      showToast(`Testing ${bookmakerId}...`, 'info');
+      
+      try {
+        const response = await fetch(`/api/keys/${bookmakerId}/test`, {
+          method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          showToast(`${result.bookmakerName} connected (${result.latency}ms)`, 'success');
+        } else {
+          showToast(`${result.bookmakerName} failed: ${result.error}`, 'error');
+        }
+        
+        loadKeys(); // Refresh to show updated status
+      } catch (error) {
+        showToast('Test failed', 'error');
+        console.error(error);
+      }
+    }
+
+    // Test all keys
+    async function testAllKeys() {
+      showToast('Testing all connections...', 'info');
+      
+      try {
+        const response = await fetch('/api/keys/test-all', {
+          method: 'POST'
+        });
+        
+        const results = await response.json();
+        const working = results.filter(r => r.success).length;
+        const failed = results.length - working;
+        
+        showToast(`${working} working, ${failed} failed`, working === results.length ? 'success' : 'warning');
+        loadKeys();
+      } catch (error) {
+        showToast('Failed to test connections', 'error');
+        console.error(error);
+      }
+    }
+
+    // Toggle key active status
+    async function toggleKey(bookmakerId, isActive) {
+      try {
+        const response = await fetch(`/api/keys/${bookmakerId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isActive })
+        });
+
+        if (response.ok) {
+          showToast(`Key ${isActive ? 'activated' : 'deactivated'}`, 'success');
+          loadKeys();
+        } else {
+          showToast('Failed to update status', 'error');
+        }
+      } catch (error) {
+        showToast('Failed to update status', 'error');
+        console.error(error);
+      }
+    }
+
+    // Rotate key
+    async function rotateKey(bookmakerId) {
+      const newKey = prompt('Enter new API key:');
+      if (!newKey) return;
+
+      const newSecret = prompt('Enter new API secret (optional):');
+
+      try {
+        const response = await fetch(`/api/keys/${bookmakerId}/rotate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiKey: newKey,
+            apiSecret: newSecret || undefined
+          })
+        });
+
+        if (response.ok) {
+          showToast('Key rotated successfully', 'success');
+          loadKeys();
+        } else {
+          showToast('Failed to rotate key', 'error');
+        }
+      } catch (error) {
+        showToast('Failed to rotate key', 'error');
+        console.error(error);
+      }
+    }
+
+    // Delete key
+    async function deleteKey(bookmakerId) {
+      if (!confirm(`Are you sure you want to delete the ${bookmakerId} key?`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/keys/${bookmakerId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          showToast('Key deleted', 'success');
+          loadKeys();
+          loadAvailableBookmakers();
+        } else {
+          showToast('Failed to delete key', 'error');
+        }
+      } catch (error) {
+        showToast('Failed to delete key', 'error');
+        console.error(error);
+      }
+    }
+
+    // Toast notification
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 300);
+      }, 5000);
+    }
+
+    // Close modal on overlay click
+    document.getElementById('key-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'key-modal') {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+</html>

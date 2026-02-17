@@ -21,6 +21,7 @@ const { MLOddsPredictor } = require('../ml-odds-predictor');
 const { WatchlistManager } = require('../watchlist-manager');
 const ConfigManager = require('../config-manager');
 const { DataRetentionManager } = require('../data-retention-manager');
+const BookmakerKeyManager = require('../bookmaker-key-manager');
 
 class WebDashboard {
     constructor(config, loggerInstances = {}) {
@@ -65,6 +66,10 @@ class WebDashboard {
                 archivePath: path.join(__dirname, '../../data/archive'),
                 tempPath: path.join(__dirname, '../../data/temp')
             }
+        });
+        this.keyManager = new BookmakerKeyManager({
+            dataDir: path.join(__dirname, '../../data'),
+            encryptionKey: config.KEY_ENCRYPTION_SECRET || process.env.KEY_ENCRYPTION_SECRET
         });
         this.latestOpportunities = null;
         this.latestMovementAnalysis = null;
@@ -1989,6 +1994,9 @@ class WebDashboard {
             res.sendFile(path.join(__dirname, '../../web/index.html'));
         });
 
+        // Bookmaker Key Management API
+        this.setupKeyManagementRoutes();
+
         // Configuration Management API
         this.setupConfigRoutes();
     }
@@ -2240,6 +2248,143 @@ class WebDashboard {
             } catch (error) {
                 res.status(500).json({ error: error.message });
             }
+        });
+    }
+
+    setupKeyManagementRoutes() {
+        // Get all keys
+        this.app.get('/api/keys', async (req, res) => {
+            try {
+                const keys = this.keyManager.getAllKeys();
+                const stats = this.keyManager.getSystemStats();
+                res.json({ keys, stats });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get available bookmakers
+        this.app.get('/api/keys/available', async (req, res) => {
+            try {
+                const bookmakers = this.keyManager.getAvailableBookmakers();
+                res.json({ bookmakers });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get specific key
+        this.app.get('/api/keys/:bookmakerId', async (req, res) => {
+            try {
+                const key = this.keyManager.getKey(req.params.bookmakerId);
+                if (!key) {
+                    return res.status(404).json({ error: 'Key not found' });
+                }
+                res.json(key);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Add or update key
+        this.app.post('/api/keys/:bookmakerId', async (req, res) => {
+            try {
+                const key = await this.keyManager.addKey(req.params.bookmakerId, req.body);
+                res.json({ success: true, key });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Update key status
+        this.app.patch('/api/keys/:bookmakerId/status', async (req, res) => {
+            try {
+                const key = await this.keyManager.updateKeyStatus(req.params.bookmakerId, req.body);
+                res.json({ success: true, key });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Test key connection
+        this.app.post('/api/keys/:bookmakerId/test', async (req, res) => {
+            try {
+                const result = await this.keyManager.testKey(req.params.bookmakerId);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Test all keys
+        this.app.post('/api/keys/test-all', async (req, res) => {
+            try {
+                const results = await this.keyManager.testAllKeys();
+                res.json({ results });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Rotate key
+        this.app.post('/api/keys/:bookmakerId/rotate', async (req, res) => {
+            try {
+                const key = await this.keyManager.rotateKey(req.params.bookmakerId, req.body);
+                res.json({ success: true, key });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Delete key
+        this.app.delete('/api/keys/:bookmakerId', async (req, res) => {
+            try {
+                const result = await this.keyManager.deleteKey(req.params.bookmakerId);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get key stats
+        this.app.get('/api/keys/:bookmakerId/stats', async (req, res) => {
+            try {
+                const stats = this.keyManager.getKeyStats(req.params.bookmakerId);
+                if (!stats) {
+                    return res.status(404).json({ error: 'Key not found' });
+                }
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get rate limit status
+        this.app.get('/api/keys/:bookmakerId/rate-limit', async (req, res) => {
+            try {
+                const status = this.keyManager.getRateLimitStatus(req.params.bookmakerId);
+                if (!status) {
+                    return res.status(404).json({ error: 'Key not found' });
+                }
+                res.json(status);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get system-wide stats
+        this.app.get('/api/keys/stats/system', async (req, res) => {
+            try {
+                const stats = this.keyManager.getSystemStats();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Key Management UI page
+        this.app.get('/keys', (req, res) => {
+            res.sendFile(path.join(__dirname, '../../web/keys.html'));
         });
     }
 
@@ -2953,6 +3098,16 @@ class WebDashboard {
             } catch (error) {
                 this.logger?.error('Failed to initialize retention manager', { error: error.message, category: 'retention' });
                 console.error('Failed to initialize retention manager:', error.message);
+            }
+
+            // Initialize Bookmaker Key Manager
+            try {
+                await this.keyManager.initialize();
+                this.logger?.info('Bookmaker Key Manager initialized', { category: 'keys' });
+                console.log('🔑 Bookmaker Key Manager initialized');
+            } catch (error) {
+                this.logger?.error('Failed to initialize key manager', { error: error.message, category: 'keys' });
+                console.error('Failed to initialize key manager:', error.message);
             }
         });
 

@@ -1,6 +1,7 @@
 const AlertConfig = require('./alert-config.js');
 const { OpportunityQualityScorer } = require('./opportunity-quality-scorer.js');
 const { BookmakerHealthMonitor } = require('./bookmaker-health-monitor.js');
+const CorrelationDetector = require('./correlation-detector.js');
 
 /**
  * Enhanced analyzer with better filtering and categorization
@@ -11,6 +12,13 @@ class OpportunityAnalyzer {
         this.alertConfig = new AlertConfig();
         this.qualityScorer = new OpportunityQualityScorer({ dataDir: config.DATA_DIR });
         this.healthMonitor = new BookmakerHealthMonitor({ dataDir: config.DATA_DIR });
+        this.correlationDetector = new CorrelationDetector({
+            dataDir: config.DATA_DIR,
+            correlationThreshold: parseFloat(config.CORRELATION_THRESHOLD) || 0.7,
+            maxExposurePerEvent: parseFloat(config.MAX_EXPOSURE_PER_EVENT) || 1000,
+            maxExposurePerTeam: parseFloat(config.MAX_EXPOSURE_PER_TEAM) || 2000,
+            maxExposurePerLeague: parseFloat(config.MAX_EXPOSURE_PER_LEAGUE) || 5000
+        });
         this.MIN_EV_THRESHOLD = parseFloat(config.MIN_EV_THRESHOLD) || 5;
         this.MAX_EV_DISPLAY = 100; // Cap display at 100% to avoid unrealistic values
         this.SUSPICIOUS_ODDS_RATIO = 2.5; // Flag if odds >2.5x Pinnacle
