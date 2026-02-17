@@ -1,0 +1,63 @@
+{
+  "expo": {
+    "name": "Surebet Detector",
+    "slug": "surebet-detector",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0a"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.surebet.detector",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to securely access your betting account",
+        "NSUserNotificationUsageDescription": "Receive alerts for high-value arbitrage opportunities"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0a0a"
+      },
+      "package": "com.surebet.detector",
+      "versionCode": 1,
+      "permissions": [
+        "NOTIFICATIONS",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#00ff88"
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Surebet Detector to use Face ID for secure access"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    }
+  }
+}
