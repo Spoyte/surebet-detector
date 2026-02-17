@@ -8,6 +8,7 @@ require('dotenv').config({ path: './config/.env' });
 
 const WebDashboard = require('./web/server.js');
 const { createLoggerWithAudit, LogLevel } = require('./logger.js');
+const { ProxyRotationManager, ProxyPoolBuilder, BookmakerProxySelector } = require('./proxy-rotation.js');
 
 // Global logger instance
 let logger, audit, debug;
@@ -128,12 +129,64 @@ async function main() {
   console.log();
   
   let dashboard;
+  let proxyManager;
+  
   try {
     dashboard = new WebDashboard(config, { logger, audit, debug });
     logger.info('Dashboard initialized', { category: 'startup' });
   } catch (err) {
     logger.error('Failed to initialize dashboard', { error: err.message, category: 'startup' });
     process.exit(1);
+  }
+  
+  // Initialize proxy rotation manager
+  try {
+    proxyManager = new ProxyRotationManager({
+      rotationStrategy: process.env.PROXY_ROTATION_STRATEGY || 'round_robin',
+      rotationInterval: parseInt(process.env.PROXY_ROTATION_INTERVAL) || 300000,
+      healthCheckInterval: parseInt(process.env.PROXY_HEALTH_CHECK_INTERVAL) || 60000,
+      maxFailures: parseInt(process.env.PROXY_MAX_FAILURES) || 3,
+      enableRotation: process.env.ENABLE_PROXY_ROTATION !== 'false',
+      enableHealthChecks: process.env.ENABLE_PROXY_HEALTH_CHECKS !== 'false'
+    });
+    
+    // Load proxies from environment if configured
+    if (process.env.PROXY_CONFIG) {
+      try {
+        const proxyConfigs = JSON.parse(process.env.PROXY_CONFIG);
+        proxyManager.loadFromConfig(proxyConfigs);
+        logger.info(`Loaded ${proxyConfigs.length} proxies from configuration`, { category: 'proxy' });
+      } catch (parseErr) {
+        logger.warn('Failed to parse PROXY_CONFIG, starting with empty pool', { 
+          error: parseErr.message,
+          category: 'proxy' 
+        });
+      }
+    }
+    
+    // Start proxy manager
+    proxyManager.start();
+    
+    // Log proxy pool status
+    const poolSummary = proxyManager.getPoolSummary();
+    logger.info('Proxy rotation manager initialized', { 
+      category: 'startup',
+      proxyCount: poolSummary.total,
+      strategy: proxyManager.config.rotationStrategy
+    });
+    
+    console.log(`  Proxy Rotation: ${poolSummary.total} proxies (${proxyManager.config.rotationStrategy})`);
+    
+    // Attach to dashboard for API access
+    dashboard.proxyManager = proxyManager;
+    dashboard.bookmakerProxySelector = new BookmakerProxySelector(proxyManager);
+    
+  } catch (err) {
+    logger.warn('Failed to initialize proxy rotation manager', { 
+      error: err.message, 
+      category: 'startup' 
+    });
+    console.log('  Proxy Rotation: disabled (error)');
   }
   
   // Start server if not in serverless environment
@@ -156,6 +209,10 @@ async function main() {
     logger.info('SIGTERM received, shutting down gracefully...', { category: 'shutdown' });
     console.log('\n🛑 SIGTERM received, shutting down gracefully...');
     await audit.record('SHUTDOWN', { reason: 'SIGTERM', timestamp: new Date().toISOString() });
+    if (proxyManager) {
+      proxyManager.stop();
+      logger.info('Proxy manager stopped', { category: 'shutdown' });
+    }
     if (dashboard.stop) {
       await dashboard.stop();
     }
@@ -168,6 +225,10 @@ async function main() {
     logger.info('SIGINT received, shutting down gracefully...', { category: 'shutdown' });
     console.log('\n🛑 SIGINT received, shutting down gracefully...');
     await audit.record('SHUTDOWN', { reason: 'SIGINT', timestamp: new Date().toISOString() });
+    if (proxyManager) {
+      proxyManager.stop();
+      logger.info('Proxy manager stopped', { category: 'shutdown' });
+    }
     if (dashboard.stop) {
       await dashboard.stop();
     }

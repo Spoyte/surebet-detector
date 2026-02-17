@@ -3481,6 +3481,137 @@ class WebDashboard {
                 res.status(500).json({ error: error.message });
             }
         });
+
+        // Proxy Rotation API
+        this.app.get('/api/proxies', (req, res) => {
+            try {
+                if (!this.proxyManager) {
+                    return res.status(503).json({ error: 'Proxy manager not initialized' });
+                }
+                const stats = this.proxyManager.getStats();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/proxies/summary', (req, res) => {
+            try {
+                if (!this.proxyManager) {
+                    return res.status(503).json({ error: 'Proxy manager not initialized' });
+                }
+                const summary = this.proxyManager.getPoolSummary();
+                res.json(summary);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/proxies', (req, res) => {
+            try {
+                if (!this.proxyManager) {
+                    return res.status(503).json({ error: 'Proxy manager not initialized' });
+                }
+                const proxyConfig = req.body;
+                const id = this.proxyManager.addProxy(proxyConfig);
+                res.json({ success: true, id, proxy: this.proxyManager.proxies.get(id) });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.delete('/api/proxies/:id', (req, res) => {
+            try {
+                if (!this.proxyManager) {
+                    return res.status(503).json({ error: 'Proxy manager not initialized' });
+                }
+                const { id } = req.params;
+                const success = this.proxyManager.removeProxy(id);
+                res.json({ success });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/proxies/:id/ban', (req, res) => {
+            try {
+                if (!this.proxyManager) {
+                    return res.status(503).json({ error: 'Proxy manager not initialized' });
+                }
+                const { id } = req.params;
+                const { duration = 3600000 } = req.body || {};
+                this.proxyManager.banProxy(id, duration);
+                res.json({ success: true, bannedUntil: this.proxyManager.proxies.get(id)?.bannedUntil });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/proxies/:id/unban', (req, res) => {
+            try {
+                if (!this.proxyManager) {
+                    return res.status(503).json({ error: 'Proxy manager not initialized' });
+                }
+                const { id } = req.params;
+                this.proxyManager.unbanProxy(id);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/proxies/rotate', (req, res) => {
+            try {
+                if (!this.proxyManager) {
+                    return res.status(503).json({ error: 'Proxy manager not initialized' });
+                }
+                this.proxyManager.rotateProxies();
+                res.json({ success: true, message: 'Proxies rotated' });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/proxies/config', (req, res) => {
+            try {
+                if (!this.proxyManager) {
+                    return res.status(503).json({ error: 'Proxy manager not initialized' });
+                }
+                const config = this.proxyManager.exportConfig();
+                res.json(config);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/proxies/config', (req, res) => {
+            try {
+                if (!this.proxyManager) {
+                    return res.status(503).json({ error: 'Proxy manager not initialized' });
+                }
+                const { proxies } = req.body;
+                this.proxyManager.loadFromConfig(proxies);
+                res.json({ success: true, count: proxies.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/proxies/bookmaker/:bookmaker', (req, res) => {
+            try {
+                if (!this.bookmakerProxySelector) {
+                    return res.status(503).json({ error: 'Bookmaker proxy selector not initialized' });
+                }
+                const { bookmaker } = req.params;
+                const proxy = this.bookmakerProxySelector.getProxyForBookmaker(bookmaker);
+                if (!proxy) {
+                    return res.status(404).json({ error: 'No proxy available for this bookmaker' });
+                }
+                res.json({ bookmaker, proxy });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
     }
 
     start() {
