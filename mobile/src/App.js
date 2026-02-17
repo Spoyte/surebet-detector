@@ -7,6 +7,7 @@ import { View, ActivityIndicator } from 'react-native';
 
 import { useAuthStore } from './store/authStore';
 import { useNotificationStore } from './store/notificationStore';
+import { useOfflineStore } from './store/offlineStore';
 import { ThemeProvider } from './theme/ThemeProvider';
 
 import { OpportunitiesScreen } from './screens/OpportunitiesScreen';
@@ -19,6 +20,7 @@ import { QuickBetScreen } from './screens/QuickBetScreen';
 
 import { TabBarIcon } from './components/TabBarIcon';
 import { BiometricGuard } from './components/BiometricGuard';
+import { OfflineIndicator } from './components/OfflineIndicator';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -107,12 +109,14 @@ function MainTabs() {
 export default function App() {
   const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
   const { initializeNotifications } = useNotificationStore();
+  const { initialize: initializeOffline } = useOfflineStore();
   const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
     async function init() {
       await checkAuth();
       await initializeNotifications();
+      await initializeOffline();
       setAppReady(true);
     }
     init();
@@ -130,6 +134,7 @@ export default function App() {
     <ThemeProvider>
       <NavigationContainer>
         <StatusBar style="light" />
+        <OfflineIndicator />
         {isAuthenticated ? (
           <BiometricGuard>
             <MainTabs />

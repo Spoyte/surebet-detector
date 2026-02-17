@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
-
-const API_BASE_URL = process.env.API_URL || 'https://api.surebet-detector.com';
+import { apiClient } from '../api/client';
 
 export const useAuthStore = create((set, get) => ({
   user: null,
@@ -16,47 +15,35 @@ export const useAuthStore = create((set, get) => ({
       const biometricEnabled = await AsyncStorage.getItem('biometric_enabled');
       
       if (token) {
-        // Validate token with server
-        const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        // Validate token with server using API client
+        const { data } = await apiClient.post('/api/mobile/auth/verify');
         
-        if (response.ok) {
-          const user = await response.json();
-          set({ 
-            user, 
-            isAuthenticated: true, 
-            isLoading: false,
-            biometricEnabled: biometricEnabled === 'true'
-          });
-        } else {
-          await AsyncStorage.removeItem('auth_token');
-          set({ isLoading: false });
-        }
+        set({ 
+          user: data.user, 
+          isAuthenticated: true, 
+          isLoading: false,
+          biometricEnabled: biometricEnabled === 'true'
+        });
       } else {
         set({ isLoading: false });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      set({ isLoading: false });
+      // Token invalid, clear it
+      await AsyncStorage.removeItem('auth_token');
+      set({ isLoading: false, isAuthenticated: false, user: null });
     }
   },
   
   login: async (email, password) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
+      const { data } = await apiClient.post('/api/mobile/auth/login', { email, password });
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Login failed');
-      }
-      
-      const { token, user } = await response.json();
+      const { token, refreshToken, user } = data;
       await AsyncStorage.setItem('auth_token', token);
+      if (refreshToken) {
+        await AsyncStorage.setItem('refresh_token', refreshToken);
+      }
       
       set({ user, isAuthenticated: true });
       return true;
@@ -67,8 +54,17 @@ export const useAuthStore = create((set, get) => ({
   },
   
   logout: async () => {
-    await AsyncStorage.removeItem('auth_token');
-    set({ user: null, isAuthenticated: false });
+    try {
+      // Notify server of logout
+      await apiClient.post('/api/mobile/auth/logout');
+    } catch (error) {
+      // Ignore error, still logout locally
+    } finally {
+      await AsyncStorage.multiRemove(['auth_token', 'refresh_token', 'biometric_enabled']);
+      // Clear API cache on logout
+      await apiClient.clearCache();
+      set({ user: null, isAuthenticated: false, biometricEnabled: false });
+    }
   },
   
   enableBiometric: async () => {
@@ -90,12 +86,25 @@ export const useAuthStore = create((set, get) => ({
       
       if (result.success) {
         await AsyncStorage.setItem('biometric_enabled', 'true');
+        // Update server
+        await apiClient.post('/api/mobile/auth/biometric', { enabled: true });
         set({ biometricEnabled: true });
         return true;
       }
       return false;
     } catch (error) {
       console.error('Biometric enable failed:', error);
+      throw error;
+    }
+  },
+  
+  disableBiometric: async () => {
+    try {
+      await AsyncStorage.removeItem('biometric_enabled');
+      await apiClient.post('/api/mobile/auth/biometric', { enabled: false });
+      set({ biometricEnabled: false });
+    } catch (error) {
+      console.error('Failed to disable biometric:', error);
       throw error;
     }
   },
@@ -120,5 +129,9 @@ export const useAuthStore = create((set, get) => ({
     set((state) => ({
       user: { ...state.user, ...updates }
     }));
+  },
+  
+  getAuthToken: async () => {
+    return await AsyncStorage.getItem('auth_token');
   }
 }));
