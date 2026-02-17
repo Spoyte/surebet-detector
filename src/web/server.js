@@ -3612,6 +3612,99 @@ class WebDashboard {
                 res.status(500).json({ error: error.message });
             }
         });
+
+        // Odds Line Shopping API
+        this.app.get('/api/line-shopping', async (req, res) => {
+            try {
+                const data = await this.loadLatestData();
+                res.json({
+                    opportunities: data.lineShopping || [],
+                    summary: data.lineShoppingSummary || null
+                });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/line-shopping/opportunities', async (req, res) => {
+            try {
+                const minImprovement = parseFloat(req.query.minImprovement) || 2.0;
+                const maxResults = parseInt(req.query.maxResults) || 20;
+                const sport = req.query.sport;
+                
+                const data = await this.loadLatestData();
+                let opportunities = data.lineShopping || [];
+                
+                if (sport) {
+                    opportunities = opportunities.filter(o => o.sport === sport);
+                }
+                
+                opportunities = opportunities
+                    .filter(o => o.evImprovement >= minImprovement)
+                    .slice(0, maxResults);
+                
+                res.json({
+                    opportunities,
+                    total: opportunities.length,
+                    filters: { minImprovement, maxResults, sport }
+                });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/line-shopping/bookmakers/compare', async (req, res) => {
+            try {
+                const { bookmaker1, bookmaker2 } = req.query;
+                
+                if (!bookmaker1 || !bookmaker2) {
+                    return res.status(400).json({ 
+                        error: 'Both bookmaker1 and bookmaker2 are required' 
+                    });
+                }
+                
+                const data = await this.loadLatestData();
+                const comparison = this.analyzer.oddsLineShopper.compareBookmakers(
+                    data.oddsData || [],
+                    bookmaker1,
+                    bookmaker2
+                );
+                
+                res.json(comparison);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/line-shopping/bookmakers/rankings', async (req, res) => {
+            try {
+                const data = await this.loadLatestData();
+                const rankings = this.analyzer.oddsLineShopper.getBookmakerRankings(
+                    data.oddsData || []
+                );
+                
+                res.json({ rankings });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/line-shopping/events/:eventId', async (req, res) => {
+            try {
+                const { eventId } = req.params;
+                const data = await this.loadLatestData();
+                
+                const event = (data.oddsData || []).find(e => e.id === eventId);
+                if (!event) {
+                    return res.status(404).json({ error: 'Event not found' });
+                }
+                
+                const result = this.analyzer.oddsLineShopper.shopEvent(event);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
     }
 
     start() {
