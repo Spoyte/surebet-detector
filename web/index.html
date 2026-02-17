@@ -89,6 +89,53 @@
             </div>
         </section>
 
+        <section class="section" id="movements-section">
+            <div class="section-header">
+                <h2>📊 Odds Movement Alerts</h2>
+                <p>Significant odds changes that may create new opportunities</p>
+                <span class="badge" id="movement-stats">Loading...</span>
+            </div>
+            
+            <div class="movement-summary-cards" id="movement-summary">
+                <div class="summary-card">
+                    <span class="summary-label">Significant Movements</span>
+                    <span class="summary-value" id="movement-count">—</span>
+                </div>
+                <div class="summary-card arbitrage">
+                    <span class="summary-label">New Arbitrage</span>
+                    <span class="summary-value" id="movement-arb-count">—</span>
+                </div>
+                <div class="summary-card ev">
+                    <span class="summary-label">New +EV</span>
+                    <span class="summary-value" id="movement-ev-count">—</span>
+                </div>
+            </div>
+            
+            <div class="opportunities-grid" id="movement-alerts-list">
+                <div class="loading">Loading movement data...</div>
+            </div>
+            
+            <div class="history-table-container" style="margin-top: 1.5rem;">
+                <h3>Recent Significant Movements</h3>
+                <table class="history-table" id="movements-table">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Bookmaker</th>
+                            <th>Outcome</th>
+                            <th>Change</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="5" class="loading">Loading movements...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <section class="section">
             <div class="section-header">
                 <h2>📈 History</h2>

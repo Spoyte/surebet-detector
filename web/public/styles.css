@@ -567,3 +567,105 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* Odds Movement Section Styles */
+.movement-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.movement-alert {
+    position: relative;
+    border: 2px solid var(--accent-warning);
+}
+
+.alert-badge {
+    position: absolute;
+    top: -10px;
+    left: 1rem;
+    background: var(--accent-warning);
+    color: #000;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.movement-alert.arbitrage {
+    border-color: var(--accent);
+}
+
+.movement-alert.arbitrage .alert-badge {
+    background: var(--accent);
+}
+
+.movement-alert.ev {
+    border-color: var(--gradient-ev);
+}
+
+.movement-alert.ev .alert-badge {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #fff;
+}
+
+#movements-table .positive {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+#movements-table .negative {
+    color: var(--accent-danger);
+    font-weight: 600;
+}
+
+#movements-table small {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: normal;
+}
+
+.badge {
+    background: var(--surface-elevated);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-family: var(--font-mono);
+}
+
+.opportunity-card.suspicious {
+    border-left: 4px solid var(--accent-warning);
+}
+
+.opportunity-odds {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+.pinnacle-odds {
+    color: var(--text-secondary);
+}
+
+.consensus-odds {
+    color: var(--text-muted);
+}
+
+.movement-info {
+    padding: 0.5rem;
+    background: var(--surface-elevated);
+    border-radius: 6px;
+    margin-top: 0.75rem;
+}
+
+@media (max-width: 768px) {
+    .movement-summary-cards {
+        grid-template-columns: 1fr;
+    }
+}

@@ -8,6 +8,7 @@ const OpportunityAnalyzer = require('../analyzer');
 const PromotionsTracker = require('../promotions');
 const AlertConfig = require('../alert-config');
 const TaxExporter = require('../tax-exporter');
+const OddsMovementTracker = require('../odds-movement-tracker');
 
 class WebDashboard {
     constructor(config) {
@@ -18,7 +19,9 @@ class WebDashboard {
         this.promotions = new PromotionsTracker();
         this.alertConfig = new AlertConfig();
         this.taxExporter = new TaxExporter();
+        this.movementTracker = new OddsMovementTracker(config);
         this.latestOpportunities = null;
+        this.latestMovementAnalysis = null;
         
         // Setup middleware first
         this.app.use(express.json());
@@ -173,10 +176,56 @@ class WebDashboard {
             }
         });
 
+        // Odds Movement API
+        this.app.get('/api/movements', async (req, res) => {
+            try {
+                const data = await this.loadMovementData();
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/movements/stats', async (req, res) => {
+            try {
+                const stats = await this.movementTracker.getStats();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/movements/alerts', async (req, res) => {
+            try {
+                const alerts = this.latestMovementAnalysis ? 
+                    this.movementTracker.generateAlerts(this.latestMovementAnalysis) : [];
+                res.json(alerts);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
         // Main dashboard
         this.app.get('/', (req, res) => {
             res.sendFile(path.join(__dirname, '../../web/index.html'));
         });
+    }
+
+    async loadMovementData() {
+        const analysisFile = path.join(__dirname, '../../data/movement-analysis.json');
+        try {
+            const data = await fs.readFile(analysisFile, 'utf8');
+            return JSON.parse(data);
+        } catch (error) {
+            return { 
+                error: 'No movement analysis available yet', 
+                timestamp: new Date().toISOString(),
+                movements: [],
+                arbitrageFromMovements: [],
+                evFromMovements: [],
+                summary: { totalMovements: 0, significantMovements: 0, newArbitrage: 0, newEV: 0 }
+            };
+        }
     }
 
     async loadLatestData() {
@@ -221,9 +270,23 @@ class WebDashboard {
         const opportunities = this.analyzer.analyze(data);
         this.latestOpportunities = opportunities;
         
+        // Run odds movement analysis
+        console.log('Running odds movement analysis...');
+        try {
+            this.latestMovementAnalysis = await this.movementTracker.analyze(data);
+            console.log(`Movement analysis complete: ${this.latestMovementAnalysis.summary.significantMovements} significant movements, ${this.latestMovementAnalysis.summary.newArbitrage} new arbitrage, ${this.latestMovementAnalysis.summary.newEV} new EV`);
+        } catch (error) {
+            console.error('Movement analysis failed:', error.message);
+        }
+        
         // Send Telegram notification if configured
         if (this.config.TELEGRAM_BOT_TOKEN && this.config.TELEGRAM_CHAT_ID) {
             await this.sendTelegramNotification(opportunities);
+            
+            // Also send movement alerts
+            if (this.latestMovementAnalysis) {
+                await this.sendMovementAlerts(this.latestMovementAnalysis);
+            }
         }
         
         return opportunities;
@@ -275,6 +338,31 @@ class WebDashboard {
             });
         } catch (error) {
             console.error('Telegram notification failed:', error.message);
+        }
+    }
+
+    async sendMovementAlerts(movementAnalysis) {
+        const axios = require('axios');
+        
+        const alerts = this.movementTracker.generateAlerts(movementAnalysis);
+        
+        // Only send high priority alerts
+        const highPriorityAlerts = alerts.filter(a => a.priority === 'high');
+        
+        if (highPriorityAlerts.length === 0) return;
+
+        for (const alert of highPriorityAlerts.slice(0, 3)) { // Max 3 alerts
+            try {
+                await axios.post(`https://api.telegram.org/bot${this.config.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    chat_id: this.config.TELEGRAM_CHAT_ID,
+                    text: alert.message,
+                    parse_mode: 'Markdown'
+                });
+                // Small delay between messages
+                await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (error) {
+                console.error('Movement alert failed:', error.message);
+            }
         }
     }
 

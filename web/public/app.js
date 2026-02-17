@@ -32,6 +32,26 @@ async function fetchForex() {
     }
 }
 
+async function fetchMovements() {
+    try {
+        const response = await fetch('/api/movements');
+        return await response.json();
+    } catch (error) {
+        console.error('Failed to fetch movements:', error);
+        return null;
+    }
+}
+
+async function fetchMovementStats() {
+    try {
+        const response = await fetch('/api/movements/stats');
+        return await response.json();
+    } catch (error) {
+        console.error('Failed to fetch movement stats:', error);
+        return null;
+    }
+}
+
 async function fetchConfig() {
     try {
         const response = await fetch('/api/config');
@@ -70,7 +90,7 @@ function renderDashboard(data) {
     // Update summary counts
     document.getElementById('arb-count').textContent = data.arbitrage?.length || 0;
     document.getElementById('ev-count').textContent = data.positiveEV?.length || 0;
-    document.getElementById('promo-count').textContent = data.promotions?.length || 0;
+    document.getElementById('suspicious-count').textContent = data.suspicious?.length || 0;
     
     // Update last update time
     if (data.timestamp) {
@@ -84,6 +104,9 @@ function renderDashboard(data) {
     
     // Render EV opportunities
     renderEVList(data.positiveEV || []);
+    
+    // Render suspicious odds
+    renderSuspiciousList(data.suspicious || []);
 }
 
 function renderArbitrageList(arbitrage) {
@@ -488,6 +511,175 @@ async function loadReportsList() {
     }
 }
 
+// Render suspicious odds list
+function renderSuspiciousList(suspicious) {
+    const container = document.getElementById('suspicious-list');
+    if (!container) return;
+    
+    if (suspicious.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">✅</div>
+                <p>No suspicious odds detected</p>
+                <p style="font-size: 0.875rem; margin-top: 0.5rem;">All odds look normal</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = suspicious.slice(0, 10).map(item => `
+        <div class="opportunity-card suspicious">
+            <div class="opportunity-header">
+                <span class="sport-tag">${escapeHtml(item.sport)}</span>
+                <span class="ev-badge">${item.ratio?.toFixed(2)}x</span>
+            </div>
+            <h4 class="opportunity-title">${escapeHtml(item.event)}</h4>
+            <p class="opportunity-outcome">${escapeHtml(item.outcome)} @ ${escapeHtml(item.bookmaker)}</p>
+            <div class="opportunity-odds">
+                <span>Odds: ${item.odds}</span>
+                ${item.pinnacleOdds ? `<span class="pinnacle-odds">Pinnacle: ${item.pinnacleOdds}</span>` : ''}
+                ${item.consensusOdds ? `<span class="consensus-odds">Consensus: ${item.consensusOdds}</span>` : ''}
+            </div>
+            <p class="opportunity-note" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                ${escapeHtml(item.note || '')}
+            </p>
+        </div>
+    `).join('');
+}
+
+// Render odds movement data
+function renderMovements(data) {
+    if (!data) return;
+    
+    // Update summary counts
+    const movementCount = document.getElementById('movement-count');
+    const arbCount = document.getElementById('movement-arb-count');
+    const evCount = document.getElementById('movement-ev-count');
+    const stats = document.getElementById('movement-stats');
+    
+    if (movementCount) movementCount.textContent = data.summary?.significantMovements || 0;
+    if (arbCount) arbCount.textContent = data.summary?.newArbitrage || 0;
+    if (evCount) evCount.textContent = data.summary?.newEV || 0;
+    if (stats) {
+        const lastUpdate = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : 'N/A';
+        stats.textContent = `Last update: ${lastUpdate}`;
+    }
+    
+    // Render movement alerts (arbitrage and EV from movements)
+    renderMovementAlerts(data);
+    
+    // Render movements table
+    renderMovementsTable(data.movements || []);
+}
+
+function renderMovementAlerts(data) {
+    const container = document.getElementById('movement-alerts-list');
+    if (!container) return;
+    
+    const alerts = [];
+    
+    // Add arbitrage opportunities from movements
+    if (data.arbitrageFromMovements) {
+        alerts.push(...data.arbitrageFromMovements.map(arb => ({
+            type: 'arbitrage',
+            ...arb
+        })));
+    }
+    
+    // Add EV opportunities from movements
+    if (data.evFromMovements) {
+        alerts.push(...data.evFromMovements.map(ev => ({
+            type: 'ev',
+            ...ev
+        })));
+    }
+    
+    if (alerts.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📊</div>
+                <p>No new opportunities from recent movements</p>
+                <p style="font-size: 0.875rem; margin-top: 0.5rem;">Odds are stable</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = alerts.slice(0, 6).map(alert => {
+        if (alert.type === 'arbitrage') {
+            return `
+                <div class="opportunity-card arbitrage movement-alert">
+                    <div class="alert-badge">🚨 From Movement</div>
+                    <div class="opportunity-header">
+                        <span class="sport-tag">${escapeHtml(alert.sport)}</span>
+                        <span class="profit-badge">${alert.profitPercent.toFixed(2)}%</span>
+                    </div>
+                    <h4 class="opportunity-title">${escapeHtml(alert.eventName)}</h4>
+                    <div class="opportunity-legs">
+                        ${alert.legs.map(leg => `
+                            <div class="leg">
+                                <span class="bookmaker">${escapeHtml(leg.bookmaker)}</span>
+                                <span class="outcome">${escapeHtml(leg.outcome)}</span>
+                                <span class="odds">${leg.odds}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="opportunity-card ev movement-alert">
+                    <div class="alert-badge">📈 From Movement</div>
+                    <div class="opportunity-header">
+                        <span class="sport-tag">${escapeHtml(alert.sport)}</span>
+                        <span class="ev-badge">+${alert.evPercent.toFixed(2)}%</span>
+                    </div>
+                    <h4 class="opportunity-title">${escapeHtml(alert.eventName)}</h4>
+                    <p class="opportunity-outcome">${escapeHtml(alert.outcome)} @ ${escapeHtml(alert.bookmaker)}</p>
+                    <div class="opportunity-odds">
+                        <span>Odds: ${alert.odds}</span>
+                        ${alert.sharpOdds ? `<span class="pinnacle-odds">Sharp: ${alert.sharpOdds}</span>` : ''}
+                    </div>
+                    <div class="movement-info" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                        Was: ${alert.previousOdds} → Now: ${alert.odds} (${alert.movementChange > 0 ? '+' : ''}${alert.movementChange}%)
+                    </div>
+                </div>
+            `;
+        }
+    }).join('');
+}
+
+function renderMovementsTable(movements) {
+    const tbody = document.querySelector('#movements-table tbody');
+    if (!tbody) return;
+    
+    if (movements.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="empty-state">No significant movements detected</td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = movements.slice(0, 20).map(m => {
+        const changeClass = m.direction === 'up' ? 'positive' : 'negative';
+        const changeSymbol = m.direction === 'up' ? '↑' : '↓';
+        return `
+            <tr>
+                <td>${escapeHtml(m.eventName)}</td>
+                <td>${escapeHtml(m.bookmaker)}</td>
+                <td>${escapeHtml(m.outcome)}</td>
+                <td class="${changeClass}">
+                    ${changeSymbol} ${Math.abs(parseFloat(m.changePercent)).toFixed(1)}%
+                    <small>(${m.previousOdds} → ${m.currentOdds})</small>
+                </td>
+                <td>${formatTime(m.timestamp)}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     // Load initial data
@@ -499,6 +691,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     const forex = await fetchForex();
     updateForexDisplay(forex);
+    
+    // Load movement data
+    const movements = await fetchMovements();
+    renderMovements(movements);
     
     // Setup UI
     setupTabs();
@@ -512,5 +708,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(async () => {
         const newData = await fetchOpportunities();
         renderDashboard(newData);
+        
+        const newMovements = await fetchMovements();
+        renderMovements(newMovements);
     }, 5 * 60 * 1000);
 });
