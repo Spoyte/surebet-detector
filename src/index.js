@@ -195,8 +195,20 @@ if (require.main === module) {
   });
 }
 
-// Export for Vercel serverless
-module.exports = main().then(dashboard => dashboard?.app).catch(err => {
-  console.error('Export error:', err);
-  return null;
+// Export for Vercel serverless - must export app directly, not a Promise
+let appInstance = null;
+
+// Initialize immediately for serverless
+main().then(dashboard => {
+  appInstance = dashboard?.app;
+}).catch(err => {
+  console.error('Initialization error:', err);
 });
+
+// Export a function that Vercel can call
+module.exports = (req, res) => {
+  if (appInstance) {
+    return appInstance(req, res);
+  }
+  res.status(503).json({ error: 'Server initializing, please retry' });
+};
