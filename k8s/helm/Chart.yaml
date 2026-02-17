@@ -1,0 +1,22 @@
+apiVersion: v2
+name: surebet-detector
+description: A Helm chart for Surebet Detector - Real-time arbitrage detection
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+keywords:
+  - arbitrage
+  - betting
+  - odds
+  - sports
+home: https://github.com/surebet-detector/surebet-detector
+sources:
+  - https://github.com/surebet-detector/surebet-detector
+maintainers:
+  - name: Surebet Team
+    email: team@surebet-detector.com
+dependencies:
+  - name: redis
+    version: 18.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

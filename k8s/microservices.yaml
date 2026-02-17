@@ -1,0 +1,440 @@
+# Surebet Detector - Microservices Kubernetes Deployment
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: surebet-microservices
+  labels:
+    name: surebet-microservices
+    app.kubernetes.io/name: surebet-detector
+    app.kubernetes.io/version: "3.0.0"
+
+---
+# RabbitMQ Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: surebet-microservices
+  labels:
+    app: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management-alpine
+          ports:
+            - containerPort: 5672
+              name: amqp
+            - containerPort: 15672
+              name: management
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: surebet-secrets
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: surebet-secrets
+                  key: RABBITMQ_PASS
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+# RabbitMQ Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: surebet-microservices
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - port: 5672
+      targetPort: 5672
+      name: amqp
+    - port: 15672
+      targetPort: 15672
+      name: management
+
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: surebet-microservices
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: surebet-microservices
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+
+---
+# Odds Collector Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: odds-collector
+  namespace: surebet-microservices
+  labels:
+    app: odds-collector
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: odds-collector
+  template:
+    metadata:
+      labels:
+        app: odds-collector
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3001"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: odds-collector
+          image: surebet/odds-collector:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3001
+              name: http
+          env:
+            - name: PORT
+              value: "3001"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: RABBITMQ_URL
+              value: "amqp://rabbitmq:5672"
+            - name: LOG_LEVEL
+              value: "info"
+          envFrom:
+            - secretRef:
+                name: surebet-api-keys
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+---
+# Odds Collector Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: odds-collector
+  namespace: surebet-microservices
+spec:
+  selector:
+    app: odds-collector
+  ports:
+    - port: 3001
+      targetPort: 3001
+
+---
+# Arbitrage Detector Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: arbitrage-detector
+  namespace: surebet-microservices
+  labels:
+    app: arbitrage-detector
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: arbitrage-detector
+  template:
+    metadata:
+      labels:
+        app: arbitrage-detector
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3002"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: arbitrage-detector
+          image: surebet/arbitrage-detector:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3002
+              name: http
+          env:
+            - name: PORT
+              value: "3002"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: RABBITMQ_URL
+              value: "amqp://rabbitmq:5672"
+            - name: MIN_PROFIT_PERCENT
+              value: "1.0"
+            - name: LOG_LEVEL
+              value: "info"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3002
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+---
+# Arbitrage Detector Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: arbitrage-detector
+  namespace: surebet-microservices
+spec:
+  selector:
+    app: arbitrage-detector
+  ports:
+    - port: 3002
+      targetPort: 3002
+
+---
+# API Gateway Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: surebet-microservices
+  labels:
+    app: api-gateway
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: api-gateway
+          image: surebet/api-gateway:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: PORT
+              value: "3000"
+            - name: ODDS_COLLECTOR_URL
+              value: "http://odds-collector:3001"
+            - name: ARBITRAGE_DETECTOR_URL
+              value: "http://arbitrage-detector:3002"
+            - name: LOG_LEVEL
+              value: "info"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+---
+# API Gateway Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: surebet-microservices
+spec:
+  type: LoadBalancer
+  selector:
+    app: api-gateway
+  ports:
+    - port: 80
+      targetPort: 3000
+
+---
+# Horizontal Pod Autoscaler for Odds Collector
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: odds-collector-hpa
+  namespace: surebet-microservices
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: odds-collector
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+---
+# Horizontal Pod Autoscaler for Arbitrage Detector
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: arbitrage-detector-hpa
+  namespace: surebet-microservices
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: arbitrage-detector
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+---
+# Horizontal Pod Autoscaler for API Gateway
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-gateway-hpa
+  namespace: surebet-microservices
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+
+---
+# Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: surebet-network-policy
+  namespace: surebet-microservices
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+  egress:
+    - to:
+        - podSelector: {}
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80

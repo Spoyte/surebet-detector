@@ -1,0 +1,24 @@
+{
+  "name": "@surebet/microservices",
+  "version": "1.0.0",
+  "description": "Surebet Detector Microservices Architecture",
+  "private": true,
+  "workspaces": [
+    "microservices/*"
+  ],
+  "scripts": {
+    "build:all": "npm run build --workspaces",
+    "dev:odds": "npm run dev --workspace=@surebet/odds-collector",
+    "dev:arbitrage": "npm run dev --workspace=@surebet/arbitrage-detector",
+    "dev:gateway": "npm run dev --workspace=@surebet/api-gateway",
+    "docker:build": "docker-compose -f docker-compose.microservices.yml build",
+    "docker:up": "docker-compose -f docker-compose.microservices.yml up",
+    "docker:down": "docker-compose -f docker-compose.microservices.yml down",
+    "k8s:apply": "kubectl apply -f k8s/microservices.yaml",
+    "k8s:delete": "kubectl delete -f k8s/microservices.yaml",
+    "test": "npm run test --workspaces"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.2"
+  }
+}

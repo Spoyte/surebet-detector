@@ -1,0 +1,131 @@
+# Surebet Detector - Microservices Docker Compose
+# For local development and testing
+
+version: '3.8'
+
+services:
+  # Infrastructure
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: surebet
+      RABBITMQ_DEFAULT_PASS: surebet123
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Microservices
+  odds-collector:
+    build:
+      context: ./microservices/odds-collector
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://surebet:surebet123@rabbitmq:5672
+      - LOG_LEVEL=debug
+      - NODE_ENV=development
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./microservices/odds-collector/src:/app/src
+    restart: unless-stopped
+
+  arbitrage-detector:
+    build:
+      context: ./microservices/arbitrage-detector
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://surebet:surebet123@rabbitmq:5672
+      - MIN_PROFIT_PERCENT=1.0
+      - LOG_LEVEL=debug
+      - NODE_ENV=development
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      odds-collector:
+        condition: service_started
+    volumes:
+      - ./microservices/arbitrage-detector/src:/app/src
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ./microservices/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - ODDS_COLLECTOR_URL=http://odds-collector:3001
+      - ARBITRAGE_DETECTOR_URL=http://arbitrage-detector:3002
+      - JWT_SECRET=dev-secret-key-change-in-production
+      - LOG_LEVEL=debug
+      - NODE_ENV=development
+    depends_on:
+      - odds-collector
+      - arbitrage-detector
+    volumes:
+      - ./microservices/api-gateway/src:/app/src
+    restart: unless-stopped
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3003:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+
+volumes:
+  redis-data:
+  rabbitmq-data:
+  prometheus-data:
+  grafana-data:

@@ -1,0 +1,606 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Surebet Detector API",
+    "description": "Real-time arbitrage and +EV detection across sportsbooks and prediction markets",
+    "version": "2.0.0",
+    "contact": {
+      "name": "Surebet Team",
+      "email": "api@surebet-detector.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.surebet-detector.com",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Health checks and system status"
+    },
+    {
+      "name": "Events",
+      "description": "Sports events and odds"
+    },
+    {
+      "name": "Arbitrage",
+      "description": "Arbitrage opportunities"
+    },
+    {
+      "name": "Bookmakers",
+      "description": "Bookmaker management and health"
+    },
+    {
+      "name": "Analytics",
+      "description": "Statistics and analytics"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "description": "Returns the health status of the API and system statistics",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service is unhealthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Prometheus metrics",
+        "description": "Returns Prometheus-compatible metrics for monitoring",
+        "operationId": "getMetrics",
+        "responses": {
+          "200": {
+            "description": "Metrics in Prometheus format",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List all events",
+        "description": "Returns all active sports events with aggregated odds",
+        "operationId": "listEvents",
+        "parameters": [
+          {
+            "name": "sport",
+            "in": "query",
+            "description": "Filter by sport",
+            "schema": {
+              "type": "string",
+              "enum": ["soccer", "tennis", "basketball", "baseball", "hockey", "esports"]
+            }
+          },
+          {
+            "name": "league",
+            "in": "query",
+            "description": "Filter by league",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of events to return",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "maximum": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{eventId}": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get event details",
+        "description": "Returns detailed odds information for a specific event",
+        "operationId": "getEvent",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "description": "Unique event identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AggregatedOdds"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/arbitrage/opportunities": {
+      "get": {
+        "tags": ["Arbitrage"],
+        "summary": "List arbitrage opportunities",
+        "description": "Returns current arbitrage opportunities",
+        "operationId": "listArbitrageOpportunities",
+        "parameters": [
+          {
+            "name": "minProfit",
+            "in": "query",
+            "description": "Minimum profit percentage",
+            "schema": {
+              "type": "number",
+              "default": 0.5
+            }
+          },
+          {
+            "name": "maxProfit",
+            "in": "query",
+            "description": "Maximum profit percentage",
+            "schema": {
+              "type": "number",
+              "default": 20
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Filter by opportunity type",
+            "schema": {
+              "type": "string",
+              "enum": ["straight", "cross_market", "multi_leg", "synthetic", "middle"]
+            }
+          },
+          {
+            "name": "sport",
+            "in": "query",
+            "description": "Filter by sport",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of arbitrage opportunities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArbitrageOpportunitiesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bookmakers/health": {
+      "get": {
+        "tags": ["Bookmakers"],
+        "summary": "Bookmaker health status",
+        "description": "Returns connection status for all configured bookmakers",
+        "operationId": "getBookmakerHealth",
+        "responses": {
+          "200": {
+            "description": "Bookmaker health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmakerHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "System statistics",
+        "description": "Returns engine statistics and performance metrics",
+        "operationId": "getStats",
+        "responses": {
+          "200": {
+            "description": "System statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStats"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["healthy", "degraded", "unhealthy"]
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/SystemStats"
+          }
+        }
+      },
+      "SystemStats": {
+        "type": "object",
+        "properties": {
+          "bookmakers": {
+            "type": "integer",
+            "description": "Number of configured bookmakers"
+          },
+          "wsConnections": {
+            "type": "integer",
+            "description": "Active WebSocket connections"
+          },
+          "pollingConnections": {
+            "type": "integer",
+            "description": "Active REST polling connections"
+          },
+          "cachedOdds": {
+            "type": "integer",
+            "description": "Number of cached odds entries"
+          },
+          "isRunning": {
+            "type": "boolean",
+            "description": "Whether the engine is running"
+          }
+        }
+      },
+      "EventsResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AggregatedOdds"
+            }
+          }
+        }
+      },
+      "AggregatedOdds": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string"
+          },
+          "sport": {
+            "type": "string"
+          },
+          "league": {
+            "type": "string"
+          },
+          "homeTeam": {
+            "type": "string"
+          },
+          "awayTeam": {
+            "type": "string"
+          },
+          "startTime": {
+            "type": "integer",
+            "description": "Unix timestamp"
+          },
+          "markets": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/OddsEntry"
+                }
+              }
+            }
+          },
+          "bestOdds": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/BestOddsEntry"
+              }
+            }
+          },
+          "lastUpdated": {
+            "type": "integer",
+            "description": "Unix timestamp"
+          }
+        }
+      },
+      "OddsEntry": {
+        "type": "object",
+        "properties": {
+          "odds": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "integer"
+          },
+          "volume": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "BestOddsEntry": {
+        "type": "object",
+        "properties": {
+          "bookmaker": {
+            "type": "string"
+          },
+          "odds": {
+            "type": "number"
+          }
+        }
+      },
+      "ArbitrageOpportunitiesResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "opportunities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArbitrageOpportunity"
+            }
+          }
+        }
+      },
+      "ArbitrageOpportunity": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["straight", "cross_market", "multi_leg", "synthetic", "middle"]
+          },
+          "sport": {
+            "type": "string"
+          },
+          "league": {
+            "type": "string"
+          },
+          "eventId": {
+            "type": "string"
+          },
+          "homeTeam": {
+            "type": "string"
+          },
+          "awayTeam": {
+            "type": "string"
+          },
+          "startTime": {
+            "type": "integer"
+          },
+          "profitPercent": {
+            "type": "number"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArbitrageLeg"
+            }
+          },
+          "totalStake": {
+            "type": "number"
+          },
+          "expectedProfit": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "integer"
+          },
+          "expiresAt": {
+            "type": "integer"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/OpportunityMetadata"
+          }
+        }
+      },
+      "ArbitrageLeg": {
+        "type": "object",
+        "properties": {
+          "bookmaker": {
+            "type": "string"
+          },
+          "market": {
+            "type": "string"
+          },
+          "selection": {
+            "type": "string"
+          },
+          "odds": {
+            "type": "number"
+          },
+          "stake": {
+            "type": "number"
+          },
+          "impliedProbability": {
+            "type": "number"
+          },
+          "contribution": {
+            "type": "number"
+          }
+        }
+      },
+      "OpportunityMetadata": {
+        "type": "object",
+        "properties": {
+          "marketTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bookmakerCount": {
+            "type": "integer"
+          },
+          "detectionMethod": {
+            "type": "string"
+          },
+          "riskFactors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BookmakerHealthResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "bookmakers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookmakerHealth"
+            }
+          }
+        }
+      },
+      "BookmakerHealth": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "connectionType": {
+            "type": "string",
+            "enum": ["websocket", "rest_polling", "disconnected"]
+          },
+          "lastUpdate": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      },
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ]
+}
