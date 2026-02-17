@@ -238,13 +238,18 @@ class OpportunityAnalyzer {
 
     /**
      * Calculate median odds from all bookmakers for a given outcome
+     * Filters out extreme outliers (odds > 50) which are likely data errors
      */
     calculateConsensusOdds(bookmakers, outcomeIndex) {
         const odds = [];
         for (const bookmaker of bookmakers) {
             const h2h = bookmaker.markets.find(m => m.type === 'h2h');
             if (h2h && h2h.outcomes[outcomeIndex]) {
-                odds.push(h2h.outcomes[outcomeIndex].odds);
+                const oddsValue = h2h.outcomes[outcomeIndex].odds;
+                // Filter out extreme outliers (>50) which are likely data errors
+                if (oddsValue > 1 && oddsValue <= 50) {
+                    odds.push(oddsValue);
+                }
             }
         }
         
