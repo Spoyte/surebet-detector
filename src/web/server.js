@@ -22,6 +22,7 @@ const { WatchlistManager } = require('../watchlist-manager');
 const ConfigManager = require('../config-manager');
 const { DataRetentionManager } = require('../data-retention-manager');
 const BookmakerKeyManager = require('../bookmaker-key-manager');
+const SeasonalityAnalyzer = require('../seasonality-analyzer');
 
 class WebDashboard {
     constructor(config, loggerInstances = {}) {
@@ -70,6 +71,9 @@ class WebDashboard {
         this.keyManager = new BookmakerKeyManager({
             dataDir: path.join(__dirname, '../../data'),
             encryptionKey: config.KEY_ENCRYPTION_SECRET || process.env.KEY_ENCRYPTION_SECRET
+        });
+        this.seasonalityAnalyzer = new SeasonalityAnalyzer({
+            dataDir: path.join(__dirname, '../../data')
         });
         this.latestOpportunities = null;
         this.latestMovementAnalysis = null;
@@ -1964,6 +1968,96 @@ class WebDashboard {
             }
         });
 
+        // Seasonality and Trend Analysis API
+        this.app.get('/api/seasonality/analysis', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '90d';
+                const data = await this.seasonalityAnalyzer.getSeasonalityAnalysis(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/seasonality/day-of-week', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '90d';
+                const data = await this.seasonalityAnalyzer.getDayOfWeekAnalysis(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/seasonality/time-of-day', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '90d';
+                const data = await this.seasonalityAnalyzer.getTimeOfDayAnalysis(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/seasonality/seasonal', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '365d';
+                const data = await this.seasonalityAnalyzer.getSeasonalAnalysis(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/seasonality/sport-trends', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '90d';
+                const data = await this.seasonalityAnalyzer.getSportTrends(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/seasonality/peak-hours', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '90d';
+                const data = await this.seasonalityAnalyzer.getPeakHours(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/seasonality/sport-seasonality', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '365d';
+                const data = await this.seasonalityAnalyzer.getSportSeasonality(timeRange);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/seasonality/predictions', async (req, res) => {
+            try {
+                const data = await this.seasonalityAnalyzer.getTrendPredictions();
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/seasonality/report', async (req, res) => {
+            try {
+                const timeRange = req.query.range || '90d';
+                const report = await this.seasonalityAnalyzer.generateReport(timeRange);
+                res.json(report);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
         // Analytics Dashboard Page
         this.app.get('/analytics', (req, res) => {
             res.sendFile(path.join(__dirname, '../../web/analytics.html'));
@@ -1987,6 +2081,11 @@ class WebDashboard {
         // Configuration Page
         this.app.get('/config', (req, res) => {
             res.sendFile(path.join(__dirname, '../../web/config.html'));
+        });
+
+        // Seasonality Analysis Page
+        this.app.get('/seasonality', (req, res) => {
+            res.sendFile(path.join(__dirname, '../../web/seasonality.html'));
         });
 
         // Main dashboard

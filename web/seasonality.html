@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seasonality & Trends - Surebet Detector</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .control-group label {
+            display: block;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        select, button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e0e0e0;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        select:hover, button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        button.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        
+        button.primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+        
+        .card h3 {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+        
+        .recommendations {
+            list-style: none;
+        }
+        
+        .recommendations li {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-left: 3px solid #667eea;
+        }
+        
+        .recommendations li.high {
+            border-left-color: #ef4444;
+        }
+        
+        .recommendations li.medium {
+            border-left-color: #f59e0b;
+        }
+        
+        .recommendations li.low {
+            border-left-color: #10b981;
+        }
+        
+        .recommendations .category {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        
+        .recommendations .text {
+            font-size: 14px;
+            color: #e0e0e0;
+        }
+        
+        .prediction-card {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .prediction-card .period {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .prediction-card .expectation {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .prediction-card .expectation.high {
+            color: #10b981;
+        }
+        
+        .prediction-card .expectation.medium {
+            color: #f59e0b;
+        }
+        
+        .prediction-card .expectation.low {
+            color: #ef4444;
+        }
+        
+        .prediction-card .confidence {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            color: #ef4444;
+        }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+        
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        th {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        td {
+            font-size: 14px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .badge-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+        
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+        
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        .hour-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 4px;
+            margin-top: 16px;
+        }
+        
+        .hour-cell {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .hour-cell:hover {
+            transform: scale(1.1);
+        }
+        
+        .hour-cell.empty {
+            background: rgba(255, 255, 255, 0.05);
+            color: #666;
+        }
+        
+        .hour-cell.low {
+            background: rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+        
+        .hour-cell.medium {
+            background: rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+        
+        .hour-cell.high {
+            background: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            font-size: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Seasonality & Trend Analysis</h1>
+            <p class="subtitle">Analyze opportunity patterns by day of week, time of day, season, and sport-specific trends</p>
+        </header>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Time Range</label>
+                <select id="timeRange">
+                    <option value="30d">Last 30 Days</option>
+                    <option value="90d" selected>Last 90 Days</option>
+                    <option value="180d">Last 6 Months</option>
+                    <option value="365d">Last Year</option>
+                </select>
+            </div>
+            <button class="primary" onclick="loadAnalysis()">🔄 Refresh Analysis</button>
+            <button onclick="generateReport()">📄 Generate Report</button>
+        </div>
+        
+        <div id="content">
+            <div class="loading">Loading seasonality analysis...</div>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+        let currentData = null;
+        
+        async function loadAnalysis() {
+            const timeRange = document.getElementById('timeRange').value;
+            const content = document.getElementById('content');
+            content.innerHTML = '<div class="loading">Loading seasonality analysis...</div>';
+            
+            try {
+                const response = await fetch(`/api/seasonality/analysis?range=${timeRange}`);
+                if (!response.ok) throw new Error('Failed to load analysis');
+                
+                currentData = await response.json();
+                renderAnalysis(currentData);
+            } catch (error) {
+                content.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        function renderAnalysis(data) {
+            const content = document.getElementById('content');
+            
+            content.innerHTML = `
+                <div class="grid">
+                    <!-- Summary Stats -->
+                    <div class="card full-width">
+                        <h2>📈 Analysis Summary</h2>
+                        <div class="stat-grid">
+                            <div class="stat-item">
+                                <div class="stat-value">${data.dayOfWeek.bestDay?.day || 'N/A'}</div>
+                                <div class="stat-label">Best Day</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${data.timeOfDay.bestHour?.hourLabel || 'N/A'}</div>
+                                <div class="stat-label">Best Hour</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${data.seasonal.bestMonth?.month || 'N/A'}</div>
+                                <div class="stat-label">Best Month</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${data.sportTrends.topSport?.sport || 'N/A'}</div>
+                                <div class="stat-label">Top Sport</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Day of Week Analysis -->
+                    <div class="card">
+                        <h2>📅 Day of Week Patterns</h2>
+                        <div class="chart-container">
+                            <canvas id="dayOfWeekChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Time of Day Analysis -->
+                    <div class="card">
+                        <h2>⏰ Time of Day Patterns</h2>
+                        <div class="hour-grid" id="hourGrid"></div>
+                        <div class="legend">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: rgba(16, 185, 129, 0.3);"></div>
+                                <span>Low Activity</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: rgba(245, 158, 11, 0.3);"></div>
+                                <span>Medium Activity</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: rgba(239, 68, 68, 0.3);"></div>
+                                <span>High Activity</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sport Trends -->
+                    <div class="card">
+                        <h2>🏆 Sport Trends</h2>
+                        <div class="chart-container">
+                            <canvas id="sportTrendsChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Monthly Patterns -->
+                    <div class="card">
+                        <h2>📆 Monthly Patterns</h2>
+                        <div class="chart-container">
+                            <canvas id="monthlyChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Predictions -->
+                    <div class="card">
+                        <h2>🔮 Trend Predictions</h2>
+                        <div id="predictions"></div>
+                    </div>
+                    
+                    <!-- Recommendations -->
+                    <div class="card full-width">
+                        <h2>💡 Recommendations</h2>
+                        <ul class="recommendations" id="recommendations"></ul>
+                    </div>
+                </div>
+            `;
+            
+            renderDayOfWeekChart(data.dayOfWeek);
+            renderHourGrid(data.timeOfDay);
+            renderSportTrendsChart(data.sportTrends);
+            renderMonthlyChart(data.monthlyPatterns);
+            renderPredictions(data.predictions);
+            renderRecommendations(data.recommendations);
+        }
+        
+        function renderDayOfWeekChart(dayOfWeek) {
+            const ctx = document.getElementById('dayOfWeekChart').getContext('2d');
+            const labels = dayOfWeek.breakdown.map(d => d.day.slice(0, 3));
+            const data = dayOfWeek.breakdown.map(d => d.opportunities);
+            
+            charts.dayOfWeek = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Opportunities',
+                        data,
+                        backgroundColor: 'rgba(102, 126, 234, 0.5)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#888' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#888' },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderHourGrid(timeOfDay) {
+            const grid = document.getElementById('hourGrid');
+            const maxOpps = Math.max(...timeOfDay.hourly.map(h => h.opportunities), 1);
+            
+            grid.innerHTML = timeOfDay.hourly.map((hour, idx) => {
+                const intensity = hour.opportunities / maxOpps;
+                let className = 'empty';
+                if (intensity > 0.6) className = 'high';
+                else if (intensity > 0.3) className = 'medium';
+                else if (intensity > 0) className = 'low';
+                
+                return `<div class="hour-cell ${className}" title="${hour.hourLabel}: ${hour.opportunities} opportunities">${idx}</div>`;
+            }).join('');
+        }
+        
+        function renderSportTrendsChart(sportTrends) {
+            const ctx = document.getElementById('sportTrendsChart').getContext('2d');
+            const topSports = sportTrends.sports.slice(0, 6);
+            
+            charts.sportTrends = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: topSports.map(s => s.sport),
+                    datasets: [{
+                        data: topSports.map(s => s.opportunities),
+                        backgroundColor: [
+                            'rgba(102, 126, 234, 0.7)',
+                            'rgba(118, 75, 162, 0.7)',
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#e0e0e0' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderMonthlyChart(monthlyPatterns) {
+            const ctx = document.getElementById('monthlyChart').getContext('2d');
+            const labels = monthlyPatterns.map(m => m.month);
+            const data = monthlyPatterns.map(m => m.opportunities);
+            
+            charts.monthly = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Opportunities',
+                        data,
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#888' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#888' },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderPredictions(predictions) {
+            const container = document.getElementById('predictions');
+            
+            const periods = [
+                { key: 'today', label: 'Today' },
+                { key: 'thisWeek', label: 'This Week' },
+                { key: 'thisMonth', label: 'This Month' }
+            ];
+            
+            container.innerHTML = periods.map(period => {
+                const pred = predictions[period.key];
+                if (!pred) return '';
+                
+                return `
+                    <div class="prediction-card">
+                        <div class="period">${period.label}</div>
+                        <div class="expectation ${pred.expectedOpportunities}">
+                            ${pred.expectedOpportunities.toUpperCase()} Activity Expected
+                        </div>
+                        <div class="confidence">Confidence: ${pred.confidence}%</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function renderRecommendations(recommendations) {
+            const container = document.getElementById('recommendations');
+            
+            container.innerHTML = recommendations.map(rec => `
+                <li class="${rec.priority}">
+                    <div class="category">${rec.category}</div>
+                    <div class="text">${rec.recommendation}</div>
+                </li>
+            `).join('');
+        }
+        
+        async function generateReport() {
+            const timeRange = document.getElementById('timeRange').value;
+            
+            try {
+                const response = await fetch(`/api/seasonality/report?range=${timeRange}`);
+                if (!response.ok) throw new Error('Failed to generate report');
+                
+                const report = await response.json();
+                
+                // Download as JSON
+                const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `seasonality-report-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                alert('Error generating report: ' + error.message);
+            }
+        }
+        
+        // Load analysis on page load
+        loadAnalysis();
+    </script>
+</body>
+</html>
