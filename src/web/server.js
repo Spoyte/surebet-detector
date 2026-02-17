@@ -23,6 +23,8 @@ const ConfigManager = require('../config-manager');
 const { DataRetentionManager } = require('../data-retention-manager');
 const BookmakerKeyManager = require('../bookmaker-key-manager');
 const SeasonalityAnalyzer = require('../seasonality-analyzer');
+const WebhookAlertManager = require('../webhook-alerts');
+const ThirdPartyAPI = require('../third-party-api');
 
 class WebDashboard {
     constructor(config, loggerInstances = {}) {
@@ -73,6 +75,12 @@ class WebDashboard {
             encryptionKey: config.KEY_ENCRYPTION_SECRET || process.env.KEY_ENCRYPTION_SECRET
         });
         this.seasonalityAnalyzer = new SeasonalityAnalyzer({
+            dataDir: path.join(__dirname, '../../data')
+        });
+        this.webhookManager = new WebhookAlertManager(
+            path.join(__dirname, '../../data/webhook-config.json')
+        );
+        this.thirdPartyAPI = new ThirdPartyAPI({
             dataDir: path.join(__dirname, '../../data')
         });
         this.latestOpportunities = null;
@@ -2098,6 +2106,18 @@ class WebDashboard {
 
         // Configuration Management API
         this.setupConfigRoutes();
+
+        // Third-Party API Integration
+        this.setupThirdPartyAPIRoutes();
+    }
+
+    setupThirdPartyAPIRoutes() {
+        // Initialize third-party API with services
+        this.thirdPartyAPI.setupRoutes(this.app, {
+            loadLatestData: this.loadLatestData.bind(this),
+            analytics: this.analytics,
+            settlementTracker: this.settlementTracker
+        });
     }
 
     setupConfigRoutes() {
@@ -2485,6 +2505,9 @@ class WebDashboard {
         this.app.get('/keys', (req, res) => {
             res.sendFile(path.join(__dirname, '../../web/keys.html'));
         });
+
+        // Setup webhook routes
+        this.setupWebhookRoutes();
     }
 
     setupLiveTrackerEvents() {
@@ -3065,6 +3088,134 @@ class WebDashboard {
         }
     }
 
+    // Webhook Alert Routes
+    setupWebhookRoutes() {
+        // Get webhook configuration
+        this.app.get('/api/webhooks/config', (req, res) => {
+            try {
+                res.json(this.webhookManager.getConfig());
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Update webhook configuration
+        this.app.post('/api/webhooks/config', (req, res) => {
+            try {
+                const success = this.webhookManager.updateConfig(req.body);
+                res.json({ success, config: this.webhookManager.getConfig() });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get webhook status summary
+        this.app.get('/api/webhooks/status', (req, res) => {
+            try {
+                res.json(this.webhookManager.getWebhookStatus());
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Add Discord webhook
+        this.app.post('/api/webhooks/discord', (req, res) => {
+            try {
+                const { name, url, ...options } = req.body;
+                const result = this.webhookManager.addDiscordWebhook(name, url, options);
+                res.json({ success: true, ...result });
+            } catch (error) {
+                res.status(400).json({ error: error.message });
+            }
+        });
+
+        // Add Slack webhook
+        this.app.post('/api/webhooks/slack', (req, res) => {
+            try {
+                const { name, url, ...options } = req.body;
+                const result = this.webhookManager.addSlackWebhook(name, url, options);
+                res.json({ success: true, ...result });
+            } catch (error) {
+                res.status(400).json({ error: error.message });
+            }
+        });
+
+        // Add custom webhook endpoint
+        this.app.post('/api/webhooks/custom', (req, res) => {
+            try {
+                const { name, url, ...options } = req.body;
+                const result = this.webhookManager.addCustomEndpoint(name, url, options);
+                res.json({ success: true, ...result });
+            } catch (error) {
+                res.status(400).json({ error: error.message });
+            }
+        });
+
+        // Delete webhook
+        this.app.delete('/api/webhooks/:type/:id', (req, res) => {
+            try {
+                const { type, id } = req.params;
+                this.webhookManager.removeWebhook(type, id);
+                res.json({ success: true });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Enable/disable webhook
+        this.app.patch('/api/webhooks/:type/:id', (req, res) => {
+            try {
+                const { type, id } = req.params;
+                const { enabled } = req.body;
+                const success = this.webhookManager.setWebhookEnabled(type, id, enabled);
+                res.json({ success });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Test webhook
+        this.app.post('/api/webhooks/:type/:id/test', async (req, res) => {
+            try {
+                const { type, id } = req.params;
+                const result = await this.webhookManager.testWebhook(type, id);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get delivery log
+        this.app.get('/api/webhooks/deliveries', (req, res) => {
+            try {
+                const limit = parseInt(req.query.limit) || 100;
+                res.json(this.webhookManager.getDeliveryLog(limit));
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get delivery statistics
+        this.app.get('/api/webhooks/stats', (req, res) => {
+            try {
+                res.json(this.webhookManager.getDeliveryStats());
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Send manual alert (for testing)
+        this.app.post('/api/webhooks/send-alert', async (req, res) => {
+            try {
+                const { opportunity, type = 'arbitrage' } = req.body;
+                const result = await this.webhookManager.sendAlert(opportunity, type);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+    }
+
     start() {
         const port = this.config.PORT || 3000;
         
@@ -3207,6 +3358,16 @@ class WebDashboard {
             } catch (error) {
                 this.logger?.error('Failed to initialize key manager', { error: error.message, category: 'keys' });
                 console.error('Failed to initialize key manager:', error.message);
+            }
+
+            // Initialize Third-Party API
+            try {
+                await this.thirdPartyAPI.init();
+                this.logger?.info('Third-Party API initialized', { category: 'api' });
+                console.log('🔌 Third-Party API initialized');
+            } catch (error) {
+                this.logger?.error('Failed to initialize third-party API', { error: error.message, category: 'api' });
+                console.error('Failed to initialize third-party API:', error.message);
             }
         });
 
