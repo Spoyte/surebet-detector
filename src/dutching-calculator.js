@@ -13,7 +13,8 @@
  * - Stake Optimization: Minimize total stake while achieving target profit
  */
 
-const logger = require('./logger.js');
+const { createLogger } = require('./logger.js');
+const logger = createLogger({ level: 2 }); // INFO level
 
 class DutchingCalculator {
     constructor(config = {}) {

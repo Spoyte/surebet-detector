@@ -12,7 +12,8 @@
  * - Detects value in soft bookmakers compared to sharp lines
  */
 
-const logger = require('./logger.js');
+const { createLogger } = require('./logger.js');
+const logger = createLogger({ level: 2 }); // INFO level
 
 class ValueBettingDetector {
     constructor(config = {}) {
