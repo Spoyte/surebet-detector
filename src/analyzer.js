@@ -2,6 +2,7 @@ const AlertConfig = require('./alert-config.js');
 const { OpportunityQualityScorer } = require('./opportunity-quality-scorer.js');
 const { BookmakerHealthMonitor } = require('./bookmaker-health-monitor.js');
 const CorrelationDetector = require('./correlation-detector.js');
+const ValueBettingDetector = require('./value-betting-detector.js');
 
 /**
  * Enhanced analyzer with better filtering and categorization
@@ -19,6 +20,12 @@ class OpportunityAnalyzer {
             maxExposurePerTeam: parseFloat(config.MAX_EXPOSURE_PER_TEAM) || 2000,
             maxExposurePerLeague: parseFloat(config.MAX_EXPOSURE_PER_LEAGUE) || 5000
         });
+        this.valueBettingDetector = new ValueBettingDetector({
+            dataDir: config.DATA_DIR,
+            minEVThreshold: parseFloat(config.VALUE_BET_MIN_EV) || 2.0,
+            minConfidence: parseFloat(config.VALUE_BET_MIN_CONFIDENCE) || 0.7,
+            kellyFraction: parseFloat(config.VALUE_BET_KELLY_FRACTION) || 0.25
+        });
         this.MIN_EV_THRESHOLD = parseFloat(config.MIN_EV_THRESHOLD) || 5;
         this.MAX_EV_DISPLAY = 100; // Cap display at 100% to avoid unrealistic values
         this.SUSPICIOUS_ODDS_RATIO = 2.5; // Flag if odds >2.5x Pinnacle
@@ -29,6 +36,7 @@ class OpportunityAnalyzer {
     async init() {
         await this.qualityScorer.init();
         await this.healthMonitor.init();
+        await this.valueBettingDetector.init();
         return this;
     }
 
@@ -41,6 +49,7 @@ class OpportunityAnalyzer {
             forex: data.forex,
             arbitrage: [],
             positiveEV: [],
+            valueBets: [], // New: dedicated value betting opportunities
             suspicious: [], // New: track suspicious odds for review
             promotions: [],
             qualitySummary: null
@@ -55,9 +64,17 @@ class OpportunityAnalyzer {
             const arbOpps = this.findArbitrage(event);
             opportunities.arbitrage.push(...arbOpps);
 
-            // Find +EV opportunities
+            // Find +EV opportunities (legacy method)
             const evOpps = this.findPositiveEV(event, opportunities);
         }
+
+        // Use enhanced value betting detector
+        const valueBetResults = this.valueBettingDetector.detectValueBets(data.oddsData);
+        opportunities.valueBets = [
+            ...valueBetResults.highConfidence,
+            ...valueBetResults.mediumConfidence,
+            ...valueBetResults.lowConfidence
+        ];
 
         // Cross-reference with Polymarket
         const crossMarketOpps = this.findCrossMarketOpportunities(
@@ -86,10 +103,19 @@ class OpportunityAnalyzer {
                 );
             }
             
+            // Score value bets
+            if (opportunities.valueBets.length > 0) {
+                opportunities.valueBets = this.qualityScorer.scoreAndRankOpportunities(
+                    opportunities.valueBets,
+                    'valueBet'
+                );
+            }
+            
             // Add quality summary
             opportunities.qualitySummary = {
                 arbitrage: this.qualityScorer.getQualityDistribution(opportunities.arbitrage, 'arbitrage'),
-                ev: this.qualityScorer.getQualityDistribution(opportunities.positiveEV, 'ev')
+                ev: this.qualityScorer.getQualityDistribution(opportunities.positiveEV, 'ev'),
+                valueBets: this.qualityScorer.getQualityDistribution(opportunities.valueBets, 'valueBet')
             };
         }
 
@@ -99,10 +125,12 @@ class OpportunityAnalyzer {
         } else {
             opportunities.arbitrage.sort((a, b) => b.profitPercent - a.profitPercent);
             opportunities.positiveEV.sort((a, b) => b.evPercent - a.evPercent);
+            opportunities.valueBets.sort((a, b) => b.evPercent - a.evPercent);
         }
 
         // Filter out extreme values from main display
         opportunities.positiveEV = opportunities.positiveEV.filter(ev => ev.evPercent <= this.MAX_EV_DISPLAY);
+        opportunities.valueBets = opportunities.valueBets.filter(vb => vb.evPercent <= this.MAX_EV_DISPLAY);
 
         // Apply user-configured filters
         const filtered = this.alertConfig.filterOpportunities(opportunities);
