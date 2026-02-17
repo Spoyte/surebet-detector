@@ -20,6 +20,7 @@ const OpportunityExporter = require('../opportunity-exporter');
 const { MLOddsPredictor } = require('../ml-odds-predictor');
 const { WatchlistManager } = require('../watchlist-manager');
 const ConfigManager = require('../config-manager');
+const { DataRetentionManager } = require('../data-retention-manager');
 
 class WebDashboard {
     constructor(config, loggerInstances = {}) {
@@ -59,6 +60,12 @@ class WebDashboard {
             dataDir: path.join(__dirname, '../../data')
         });
         this.configManager = new ConfigManager();
+        this.retentionManager = new DataRetentionManager({
+            archive: {
+                archivePath: path.join(__dirname, '../../data/archive'),
+                tempPath: path.join(__dirname, '../../data/temp')
+            }
+        });
         this.latestOpportunities = null;
         this.latestMovementAnalysis = null;
         
@@ -2109,6 +2116,115 @@ class WebDashboard {
                 res.status(500).json({ error: error.message });
             }
         });
+
+        // Data Retention API
+        this.setupRetentionRoutes();
+    }
+
+    setupRetentionRoutes() {
+        // Get retention configuration
+        this.app.get('/api/retention/config', (req, res) => {
+            try {
+                const config = this.retentionManager.getConfig();
+                res.json(config);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Update retention configuration
+        this.app.post('/api/retention/config', (req, res) => {
+            try {
+                const config = this.retentionManager.updateConfig(req.body);
+                res.json({ success: true, config });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get archive statistics
+        this.app.get('/api/retention/stats', async (req, res) => {
+            try {
+                const stats = await this.retentionManager.getArchiveStats();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Run cleanup manually
+        this.app.post('/api/retention/cleanup', async (req, res) => {
+            try {
+                const result = await this.retentionManager.runCleanup();
+                res.json({ success: true, result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Run full archive manually
+        this.app.post('/api/retention/archive', async (req, res) => {
+            try {
+                const result = await this.retentionManager.runFullArchive();
+                res.json({ success: true, result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Restore archived file
+        this.app.post('/api/retention/restore', async (req, res) => {
+            try {
+                const { fileName, dataType, destinationPath } = req.body;
+                const result = await this.retentionManager.restoreFile(fileName, dataType, destinationPath);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Export archived data by date range
+        this.app.get('/api/retention/export', async (req, res) => {
+            try {
+                const { dataType, startDate, endDate } = req.query;
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                const result = await this.retentionManager.exportArchive(dataType, start, end);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get data types
+        this.app.get('/api/retention/data-types', (req, res) => {
+            try {
+                const { DATA_TYPES } = require('../data-retention-manager');
+                res.json(DATA_TYPES);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Start scheduled tasks
+        this.app.post('/api/retention/start', (req, res) => {
+            try {
+                this.retentionManager.startScheduledTasks();
+                res.json({ success: true, message: 'Scheduled tasks started' });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Stop scheduled tasks
+        this.app.post('/api/retention/stop', (req, res) => {
+            try {
+                this.retentionManager.stopScheduledTasks();
+                res.json({ success: true, message: 'Scheduled tasks stopped' });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
     }
 
     setupLiveTrackerEvents() {
@@ -2174,6 +2290,26 @@ class WebDashboard {
 
         this.bankrollManager.on('betCancelled', (data) => {
             console.log(`🚫 Bet cancelled: ${data.betId}`);
+        });
+    }
+
+    setupSettlementEvents() {
+        // Handle settlement tracker events
+        if (!this.settlementTracker) return;
+        
+        this.settlementTracker.on('betSettled', (data) => {
+            console.log(`✅ Bet settled: ${data.betId}, Profit: ${data.profit}`);
+            // Broadcast to WebSocket if available
+            if (this.wsServer) {
+                this.wsServer.broadcastAlert({
+                    type: 'betSettled',
+                    ...data
+                });
+            }
+        });
+        
+        this.settlementTracker.on('betPending', (data) => {
+            console.log(`⏳ Bet pending: ${data.betId}`);
         });
     }
 
@@ -2605,6 +2741,17 @@ class WebDashboard {
                 this.logger?.error('Failed to initialize watchlist manager', { error: error.message, category: 'watchlist' });
                 console.error('Failed to initialize watchlist manager:', error.message);
             }
+            
+            // Initialize Data Retention Manager
+            try {
+                await this.retentionManager.initialize();
+                this.retentionManager.startScheduledTasks();
+                this.logger?.info('Data Retention Manager initialized', { category: 'retention' });
+                console.log('🗄️ Data Retention Manager initialized');
+            } catch (error) {
+                this.logger?.error('Failed to initialize retention manager', { error: error.message, category: 'retention' });
+                console.error('Failed to initialize retention manager:', error.message);
+            }
         });
 
         // Schedule automatic updates
@@ -2655,6 +2802,7 @@ class WebDashboard {
         this.liveTracker.stop();
         this.wsServer.stop();
         this.settlementTracker.stop();
+        this.retentionManager.stopScheduledTasks();
         
         // Shutdown metrics collector
         try {

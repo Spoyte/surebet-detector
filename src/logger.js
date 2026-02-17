@@ -655,7 +655,8 @@ class DebugLogger {
                 breakpoint: name
             });
             
-            if (typeof debugger !== 'undefined') {
+            if (typeof globalThis.debugger !== 'undefined') {
+                // eslint-disable-next-line no-debugger
                 debugger;
             }
         }

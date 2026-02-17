@@ -338,12 +338,12 @@ class ConfigManager {
 
     getPublicConfig() {
         // Return config without sensitive data
-        const public = JSON.parse(JSON.stringify(this.config));
-        delete public.alerts.telegram.botToken;
-        delete public.alerts.telegram.chatId;
-        delete public.alerts.email.smtpPass;
-        delete public.alerts.webhook.secret;
-        return public;
+        const publicConfig = JSON.parse(JSON.stringify(this.config));
+        delete publicConfig.alerts.telegram.botToken;
+        delete publicConfig.alerts.telegram.chatId;
+        delete publicConfig.alerts.email.smtpPass;
+        delete publicConfig.alerts.webhook.secret;
+        return publicConfig;
     }
 
     updateConfig(updates) {
