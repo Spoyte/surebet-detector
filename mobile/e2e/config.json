@@ -1,0 +1,8 @@
+module.exports = {
+  testEnvironment: 'node',
+  testRunner: 'jest-circus/runner',
+  testTimeout: 120000,
+  rootDir: '..',
+  testMatch: ['<rootDir>/e2e/**/*.test.js'],
+  verbose: true,
+};

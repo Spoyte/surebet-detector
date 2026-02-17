@@ -1,0 +1,99 @@
+# EAS Build Configuration
+# For Expo Application Services builds
+
+name: EAS Build
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'mobile/**'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Build platform'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - ios
+          - android
+      profile:
+        description: 'Build profile'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./mobile
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: ./mobile/package-lock.json
+    
+    - name: Setup EAS
+      uses: expo/expo-github-action@v8
+      with:
+        eas-version: latest
+        token: ${{ secrets.EXPO_TOKEN }}
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build with EAS
+      run: |
+        PLATFORM="${{ github.event.inputs.platform || 'all' }}"
+        PROFILE="${{ github.event.inputs.profile || 'preview' }}"
+        
+        if [ "$PLATFORM" = "all" ]; then
+          eas build --platform all --profile $PROFILE --non-interactive
+        else
+          eas build --platform $PLATFORM --profile $PROFILE --non-interactive
+        fi
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+  # Submit to stores after successful build
+  submit:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event.inputs.profile == 'production' || github.ref == 'refs/heads/main'
+    defaults:
+      run:
+        working-directory: ./mobile
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup EAS
+      uses: expo/expo-github-action@v8
+      with:
+        eas-version: latest
+        token: ${{ secrets.EXPO_TOKEN }}
+    
+    - name: Submit to App Store
+      if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'all'
+      run: eas submit --platform ios --latest --non-interactive
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    
+    - name: Submit to Play Store
+      if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'all'
+      run: eas submit --platform android --latest --non-interactive
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
