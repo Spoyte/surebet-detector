@@ -9,6 +9,8 @@
     "fetch": "node src/fetcher.js",
     "analyze": "node src/analyzer.js",
     "hourly": "node run-hourly.js",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
     "web": "node src/web/server.js",
     "test": "node --test src/*.test.js 2>/dev/null || echo 'No tests found or tests failed'"
   },
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.9",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "typescript": "^5.3.0"
   }
 }
