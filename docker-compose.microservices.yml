@@ -91,15 +91,75 @@ services:
       - PORT=3000
       - ODDS_COLLECTOR_URL=http://odds-collector:3001
       - ARBITRAGE_DETECTOR_URL=http://arbitrage-detector:3002
+      - USER_MANAGEMENT_URL=http://user-management:3003
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3004
+      - ANALYTICS_SERVICE_URL=http://analytics-service:3005
+      - API_COMPOSITION_URL=http://api-composition:3006
       - JWT_SECRET=dev-secret-key-change-in-production
       - LOG_LEVEL=debug
       - NODE_ENV=development
     depends_on:
       - odds-collector
       - arbitrage-detector
+      - api-composition
     volumes:
       - ./microservices/api-gateway/src:/app/src
     restart: unless-stopped
+
+  api-composition:
+    build:
+      context: ./microservices/api-composition
+      dockerfile: Dockerfile
+    ports:
+      - "3006:3006"
+    environment:
+      - PORT=3006
+      - ODDS_COLLECTOR_URL=http://odds-collector:3001
+      - ARBITRAGE_DETECTOR_URL=http://arbitrage-detector:3002
+      - USER_MANAGEMENT_URL=http://user-management:3003
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3004
+      - ANALYTICS_SERVICE_URL=http://analytics-service:3005
+      - BOOKMAKER_REVIEWS_URL=http://bookmaker-reviews:3010
+      - API_GATEWAY_URL=http://api-gateway:3000
+      - CACHE_TTL=30
+      - LOG_LEVEL=debug
+      - NODE_ENV=development
+    depends_on:
+      - odds-collector
+      - arbitrage-detector
+      - bookmaker-reviews
+    volumes:
+      - ./microservices/api-composition/src:/app/src
+    restart: unless-stopped
+
+  bookmaker-reviews:
+    build:
+      context: ./microservices/bookmaker-reviews
+      dockerfile: Dockerfile
+    ports:
+      - "3010:3010"
+    environment:
+      - PORT=3010
+      - MONGODB_URI=mongodb://mongo:27017/surebet-reviews
+      - LOG_LEVEL=debug
+      - NODE_ENV=development
+    depends_on:
+      - mongo
+    volumes:
+      - ./microservices/bookmaker-reviews/src:/app/src
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Monitoring
   prometheus:
@@ -124,8 +184,24 @@ services:
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
 
+  # Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.45
+    ports:
+      - "16686:16686"    # Jaeger UI
+      - "14268:14268"    # HTTP collector
+      - "6831:6831/udp"  # UDP agent (compact)
+      - "6832:6832/udp"  # UDP agent (binary)
+      - "14250:14250"    # gRPC collector
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    volumes:
+      - jaeger-data:/tmp
+
 volumes:
   redis-data:
   rabbitmq-data:
   prometheus-data:
   grafana-data:
+  jaeger-data:
+  mongo-data:

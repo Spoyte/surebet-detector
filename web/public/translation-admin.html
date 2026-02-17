@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Translation Admin - Surebet Detector</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/public/i18n-styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00ff88;
+            --primary-dim: #00ff8820;
+            --danger: #ff4444;
+            --warning: #ffaa00;
+            --info: #4488ff;
+            --surface: #1a1a1a;
+            --surface-hover: #252525;
+            --background: #0a0a0a;
+            --text: #ffffff;
+            --text-muted: #888888;
+            --border: #333333;
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .admin-nav {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .admin-nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .admin-nav-brand .logo {
+            font-size: 1.5rem;
+        }
+
+        .admin-nav-brand h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .admin-nav-brand span {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .admin-nav-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .admin-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+        }
+
+        .stat-card h3 {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-card .subtext {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .admin-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-header h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .section-content {
+            padding: 1.5rem;
+        }
+
+        .language-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .language-card {
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .language-card:hover {
+            border-color: var(--primary);
+            background: var(--primary-dim);
+        }
+
+        .language-card.active {
+            border-color: var(--primary);
+            background: var(--primary-dim);
+        }
+
+        .language-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .language-flag {
+            font-size: 2rem;
+        }
+
+        .language-info h3 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .language-info p {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .language-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .language-stat {
+            text-align: center;
+            padding: 0.75rem;
+            background: var(--surface);
+            border-radius: 8px;
+        }
+
+        .language-stat .number {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .language-stat .label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.75rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            text-align: right;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #00cc6a;
+        }
+
+        .btn-secondary {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        .btn-secondary:hover {
+            background: #444;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .translation-editor {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 1.5rem;
+            min-height: 500px;
+        }
+
+        .namespace-sidebar {
+            background: var(--background);
+            border-radius: var(--radius);
+            padding: 1rem;
+        }
+
+        .namespace-item {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .namespace-item:hover {
+            background: var(--surface-hover);
+        }
+
+        .namespace-item.active {
+            background: var(--primary-dim);
+            color: var(--primary);
+        }
+
+        .namespace-item .count {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: var(--surface);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .translation-list {
+            background: var(--background);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .translation-toolbar {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .search-input {
+            flex: 1;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            color: var(--text);
+            font-size: 0.875rem;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .translation-items {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .translation-item {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .translation-item:last-child {
+            border-bottom: none;
+        }
+
+        .translation-key {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .translation-source {
+            color: var(--text);
+            font-size: 0.875rem;
+        }
+
+        .translation-input {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem;
+            color: var(--text);
+            font-size: 0.875rem;
+            width: 100%;
+            min-height: 60px;
+            resize: vertical;
+        }
+
+        .translation-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .translation-input.empty {
+            border-color: var(--warning);
+        }
+
+        .translation-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-translated {
+            background: var(--primary-dim);
+            color: var(--primary);
+        }
+
+        .status-missing {
+            background: rgba(255, 170, 0, 0.2);
+            color: var(--warning);
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .filter-tab {
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .filter-tab:hover {
+            color: var(--text);
+        }
+
+        .filter-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--surface);
+            border-radius: var(--radius);
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow: hidden;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.open .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            color: var(--text);
+            font-size: 0.875rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+        }
+
+        .import-dropzone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 3rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .import-dropzone:hover {
+            border-color: var(--primary);
+            background: var(--primary-dim);
+        }
+
+        .import-dropzone .icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .import-dropzone p {
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .import-dropzone .hint {
+            font-size: 0.75rem;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1001;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            border-color: var(--primary);
+        }
+
+        .toast.error {
+            border-color: var(--danger);
+        }
+
+        @media (max-width: 768px) {
+            .admin-container {
+                padding: 1rem;
+            }
+
+            .translation-editor {
+                grid-template-columns: 1fr;
+            }
+
+            .namespace-sidebar {
+                display: flex;
+                overflow-x: auto;
+                gap: 0.5rem;
+            }
+
+            .namespace-item {
+                white-space: nowrap;
+            }
+
+            .translation-item {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="admin-nav">
+        <div class="admin-nav-brand">
+            <span class="logo">🌐</span>
+            <h1>Translation Admin</h1>
+            <span>| Surebet Detector</span>
+        </div>
+        <div class="admin-nav-actions">
+            <button class="btn btn-secondary" onclick="showImportModal()">
+                📥 Import
+            </button>
+            <button class="btn btn-secondary" onclick="exportTranslations()">
+                📤 Export
+            </button>
+            <a href="/" class="btn btn-primary">
+                🏠 Dashboard
+            </a>
+        </div>
+    </nav>
+
+    <div class="admin-container">
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Languages</h3>
+                <div class="value" id="total-languages">—</div>
+                <div class="subtext">Active translations</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Keys</h3>
+                <div class="value" id="total-keys">—</div>
+                <div class="subtext">Across all namespaces</div>
+            </div>
+            <div class="stat-card">
+                <h3>Completion Rate</h3>
+                <div class="value" id="completion-rate">—</div>
+                <div class="subtext">Average across languages</div>
+            </div>
+            <div class="stat-card">
+                <h3>Missing Translations</h3>
+                <div class="value" id="missing-count">—</div>
+                <div class="subtext">Need attention</div>
+            </div>
+        </div>
+
+        <!-- Languages Overview -->
+        <div class="admin-section">
+            <div class="section-header">
+                <h2>Languages</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" onclick="showAddLanguageModal()">
+                        ➕ Add Language
+                    </button>
+                </div>
+            </div>
+            <div class="section-content">
+                <div class="language-grid" id="language-grid">
+                    <!-- Languages will be loaded here -->
+                    <div class="language-card">
+                        <p>Loading languages...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Translation Editor -->
+        <div class="admin-section">
+            <div class="section-header">
+                <h2>Translation Editor</h2>
+                <div class="section-actions">
+                    <select id="editor-language-select" class="btn btn-secondary">
+                        <option value="">Select Language...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="filter-tabs">
+                <div class="filter-tab active" onclick="setFilter('all')">All</div>
+                <div class="filter-tab" onclick="setFilter('missing')">Missing</div>
+                <div class="filter-tab" onclick="setFilter('translated')">Translated</div>
+            </div>
+            <div class="section-content">
+                <div class="translation-editor">
+                    <div class="namespace-sidebar" id="namespace-list">
+                        <!-- Namespaces will be loaded here -->
+                    </div>
+                    <div class="translation-list">
+                        <div class="translation-toolbar">
+                            <input type="text" class="search-input" id="translation-search" 
+                                   placeholder="Search translations..." onkeyup="searchTranslations()">
+                            <button class="btn btn-secondary btn-sm" onclick="saveAllChanges()">
+                                💾 Save All
+                            </button>
+                        </div>
+                        <div class="translation-items" id="translation-items">
+                            <!-- Translations will be loaded here -->
+                            <p style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                                Select a language to start editing
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Language Modal -->
+    <div class="modal-overlay" id="add-language-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Add New Language</h3>
+                <button class="modal-close" onclick="hideModal('add-language-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Language Code (ISO 639-1)</label>
+                    <input type="text" id="new-lang-code" placeholder="e.g., ja" maxlength="2">
+                </div>
+                <div class="form-group">
+                    <label>Language Name (English)</label>
+                    <input type="text" id="new-lang-name" placeholder="e.g., Japanese">
+                </div>
+                <div class="form-group">
+                    <label>Native Name</label>
+                    <input type="text" id="new-lang-native" placeholder="e.g., 日本語">
+                </div>
+                <div class="form-group">
+                    <label>Flag Emoji</label>
+                    <input type="text" id="new-lang-flag" placeholder="e.g., 🇯🇵" maxlength="2">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideModal('add-language-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="addLanguage()">Add Language</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal-overlay" id="import-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Import Translations</h3>
+                <button class="modal-close" onclick="hideModal('import-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Target Language</label>
+                    <select id="import-language">
+                        <option value="">Select language...</option>
+                    </select>
+                </div>
+                <div class="import-dropzone" onclick="document.getElementById('import-file').click()">
+                    <div class="icon">📁</div>
+                    <p>Click to select or drag JSON file here</p>
+                    <p class="hint">Supports: JSON format with key-value pairs</p>
+                    <input type="file" id="import-file" accept=".json" style="display: none;" onchange="handleFileImport()">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideModal('import-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <span id="toast-message"></span>
+    </div>
+
+    <script>
+        // State
+        let languages = [];
+        let currentLanguage = null;
+        let currentNamespace = 'common';
+        let currentFilter = 'all';
+        let translations = {};
+        let pendingChanges = {};
+        const namespaces = ['common', 'opportunities', 'betting', 'live', 'auth', 'dashboard'];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadLanguages();
+            renderNamespaces();
+        });
+
+        // Load languages from API
+        async function loadLanguages() {
+            try {
+                const response = await fetch('/api/i18n/languages');
+                const data = await response.json();
+                languages = data.languages || [];
+                
+                renderLanguageGrid();
+                updateStats();
+                populateLanguageSelects();
+            } catch (error) {
+                console.error('Failed to load languages:', error);
+                showToast('Failed to load languages', 'error');
+            }
+        }
+
+        // Render language cards
+        function renderLanguageGrid() {
+            const grid = document.getElementById('language-grid');
+            
+            if (languages.length === 0) {
+                grid.innerHTML = '<p>No languages found</p>';
+                return;
+            }
+
+            grid.innerHTML = languages.map(lang => `
+                <div class="language-card ${lang.code === currentLanguage ? 'active' : ''}" 
+                     onclick="selectLanguage('${lang.code}')">
+                    <div class="language-card-header">
+                        <span class="language-flag">${lang.flag}</span>
+                        <div class="language-info">
+                            <h3>${lang.nativeName}</h3>
+                            <p>${lang.name} (${lang.code})</p>
+                        </div>
+                    </div>
+                    <div class="language-stats">
+                        <div class="language-stat">
+                            <div class="number">${lang.translationCount || 0}</div>
+                            <div class="label">Translated</div>
+                        </div>
+                        <div class="language-stat">
+                            <div class="number">${lang.missingCount || 0}</div>
+                            <div class="label">Missing</div>
+                        </div>
+                        <div class="language-stat">
+                            <div class="number">${lang.completionRate || 0}%</div>
+                            <div class="label">Complete</div>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${lang.completionRate || 0}%"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Update statistics
+        function updateStats() {
+            const activeLangs = languages.filter(l => l.isActive);
+            document.getElementById('total-languages').textContent = activeLangs.length;
+            
+            const totalKeys = languages.reduce((sum, l) => sum + (l.translationCount || 0), 0);
+            document.getElementById('total-keys').textContent = totalKeys.toLocaleString();
+            
+            const avgCompletion = languages.length > 0 
+                ? Math.round(languages.reduce((sum, l) => sum + (l.completionRate || 0), 0) / languages.length)
+                : 0;
+            document.getElementById('completion-rate').textContent = avgCompletion + '%';
+            
+            const missing = languages.reduce((sum, l) => sum + (l.missingCount || 0), 0);
+            document.getElementById('missing-count').textContent = missing.toLocaleString();
+        }
+
+        // Populate language selects
+        function populateLanguageSelects() {
+            const selects = ['editor-language-select', 'import-language'];
+            selects.forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
+                
+                const currentValue = select.value;
+                select.innerHTML = `
+                    <option value="">${id === 'editor-language-select' ? 'Select Language...' : 'Select language...'}</option>
+                    ${languages.map(l => `
+                        <option value="${l.code}" ${l.code === currentValue ? 'selected' : ''}>
+                            ${l.flag} ${l.nativeName}
+                        </option>
+                    `).join('')}
+                `;
+            });
+        }
+
+        // Render namespace sidebar
+        function renderNamespaces() {
+            const sidebar = document.getElementById('namespace-list');
+            sidebar.innerHTML = namespaces.map(ns => `
+                <div class="namespace-item ${ns === currentNamespace ? 'active' : ''}" 
+                     onclick="selectNamespace('${ns}')">
+                    <span>${ns.charAt(0).toUpperCase() + ns.slice(1)}</span>
+                    <span class="count">${getNamespaceCount(ns)}</span>
+                </div>
+            `).join('');
+        }
+
+        function getNamespaceCount(ns) {
+            // This would come from API in real implementation
+            return '—';
+        }
+
+        // Select language
+        async function selectLanguage(code) {
+            currentLanguage = code;
+            renderLanguageGrid();
+            
+            // Update editor select
+            document.getElementById('editor-language-select').value = code;
+            
+            // Load translations
+            await loadTranslations(code, currentNamespace);
+        }
+
+        // Select namespace
+        async function selectNamespace(ns) {
+            currentNamespace = ns;
+            renderNamespaces();
+            
+            if (currentLanguage) {
+                await loadTranslations(currentLanguage, ns);
+            }
+        }
+
+        // Load translations
+        async function loadTranslations(lang, namespace) {
+            try {
+                const response = await fetch(`/api/i18n/translations/${lang}/${namespace}`);
+                const data = await response.json();
+                translations = data.translations || {};
+                renderTranslations();
+            } catch (error) {
+                console.error('Failed to load translations:', error);
+                showToast('Failed to load translations', 'error');
+            }
+        }
+
+        // Render translation items
+        function renderTranslations() {
+            const container = document.getElementById('translation-items');
+            
+            if (!currentLanguage) {
+                container.innerHTML = `
+                    <p style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                        Select a language to start editing
+                    </p>
+                `;
+                return;
+            }
+
+            const entries = Object.entries(translations);
+            
+            if (entries.length === 0) {
+                container.innerHTML = `
+                    <p style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                        No translations found in this namespace
+                    </p>
+                `;
+                return;
+            }
+
+            // Filter entries
+            let filtered = entries;
+            if (currentFilter === 'missing') {
+                filtered = entries.filter(([key, value]) => !value || value === '');
+            } else if (currentFilter === 'translated') {
+                filtered = entries.filter(([key, value]) => value && value !== '');
+            }
+
+            // Apply search
+            const searchTerm = document.getElementById('translation-search')?.value.toLowerCase() || '';
+            if (searchTerm) {
+                filtered = filtered.filter(([key, value]) => 
+                    key.toLowerCase().includes(searchTerm) || 
+                    (value && value.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            container.innerHTML = filtered.map(([key, value]) => {
+                const isMissing = !value || value === '';
+                const hasChanges = pendingChanges[`${currentNamespace}.${key}`] !== undefined;
+                
+                return `
+                    <div class="translation-item" data-key="${key}">
+                        <div>
+                            <div class="translation-key">${key}</div>
+                            <div class="translation-source">${getSourceTranslation(key) || '(no source)'}</div>
+                        </div>
+                        <textarea class="translation-input ${isMissing ? 'empty' : ''} ${hasChanges ? 'modified' : ''}"
+                                  onchange="updateTranslation('${key}', this.value)"
+                                  placeholder="Enter translation...">${pendingChanges[`${currentNamespace}.${key}`] !== undefined 
+                                    ? pendingChanges[`${currentNamespace}.${key}`] 
+                                    : (value || '')}</textarea>
+                        <div class="translation-actions">
+                            <span class="status-badge ${isMissing ? 'status-missing' : 'status-translated'}">
+                                ${isMissing ? '⚠️ Missing' : '✓ Translated'}
+                            </span>
+                            ${hasChanges ? '<span class="status-badge" style="background: var(--info);">Modified</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Get source translation (English)
+        function getSourceTranslation(key) {
+            // In real implementation, this would fetch from English translations
+            return '';
+        }
+
+        // Update translation
+        function updateTranslation(key, value) {
+            pendingChanges[`${currentNamespace}.${key}`] = value;
+            renderTranslations();
+        }
+
+        // Set filter
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            renderTranslations();
+        }
+
+        // Search translations
+        function searchTranslations() {
+            renderTranslations();
+        }
+
+        // Save all changes
+        async function saveAllChanges() {
+            if (Object.keys(pendingChanges).length === 0) {
+                showToast('No changes to save');
+                return;
+            }
+
+            try {
+                // Group changes by namespace
+                const changesByNamespace = {};
+                Object.entries(pendingChanges).forEach(([key, value]) => {
+                    const [ns, ...keyParts] = key.split('.');
+                    if (!changesByNamespace[ns]) changesByNamespace[ns] = {};
+                    changesByNamespace[ns][keyParts.join('.')] = value;
+                });
+
+                // Save each namespace
+                for (const [ns, changes] of Object.entries(changesByNamespace)) {
+                    await fetch(`/api/i18n/translations/${currentLanguage}/${ns}/bulk`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ translations: changes })
+                    });
+                }
+
+                pendingChanges = {};
+                showToast('Changes saved successfully', 'success');
+                await loadTranslations(currentLanguage, currentNamespace);
+            } catch (error) {
+                console.error('Failed to save changes:', error);
+                showToast('Failed to save changes', 'error');
+            }
+        }
+
+        // Export translations
+        async function exportTranslations() {
+            if (!currentLanguage) {
+                showToast('Please select a language first', 'error');
+                return;
+            }
+
+            try {
+                const allTranslations = {};
+                
+                // Fetch all namespaces
+                for (const ns of namespaces) {
+                    const response = await fetch(`/api/i18n/translations/${currentLanguage}/${ns}`);
+                    const data = await response.json();
+                    allTranslations[ns] = data.translations || {};
+                }
+
+                // Create and download file
+                const blob = new Blob([JSON.stringify(allTranslations, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `translations-${currentLanguage}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showToast('Translations exported', 'success');
+            } catch (error) {
+                console.error('Failed to export:', error);
+                showToast('Failed to export translations', 'error');
+            }
+        }
+
+        // Modal functions
+        function showModal(id) {
+            document.getElementById(id).classList.add('open');
+        }
+
+        function hideModal(id) {
+            document.getElementById(id).classList.remove('open');
+        }
+
+        function showAddLanguageModal() {
+            showModal('add-language-modal');
+        }
+
+        function showImportModal() {
+            populateLanguageSelects();
+            showModal('import-modal');
+        }
+
+        // Add language
+        async function addLanguage() {
+            const code = document.getElementById('new-lang-code').value.trim().toLowerCase();
+            const name = document.getElementById('new-lang-name').value.trim();
+            const nativeName = document.getElementById('new-lang-native').value.trim();
+            const flag = document.getElementById('new-lang-flag').value.trim();
+
+            if (!code || !name || !nativeName) {
+                showToast('Please fill in all required fields', 'error');
+                return;
+            }
+
+            try {
+                await fetch('/api/i18n/languages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, name, nativeName, flag, isActive: true })
+                });
+
+                hideModal('add-language-modal');
+                showToast('Language added successfully', 'success');
+                
+                // Clear form
+                document.getElementById('new-lang-code').value = '';
+                document.getElementById('new-lang-name').value = '';
+                document.getElementById('new-lang-native').value = '';
+                document.getElementById('new-lang-flag').value = '';
+                
+                // Reload
+                await loadLanguages();
+            } catch (error) {
+                console.error('Failed to add language:', error);
+                showToast('Failed to add language', 'error');
+            }
+        }
+
+        // Handle file import
+        async function handleFileImport() {
+            const file = document.getElementById('import-file').files[0];
+            const langCode = document.getElementById('import-language').value;
+
+            if (!file || !langCode) {
+                showToast('Please select a file and language', 'error');
+                return;
+            }
+
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+
+                // Import translations
+                for (const [namespace, translations] of Object.entries(data)) {
+                    await fetch(`/api/i18n/translations/${langCode}/${namespace}/bulk`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ translations })
+                    });
+                }
+
+                hideModal('import-modal');
+                showToast('Translations imported successfully', 'success');
+                await loadLanguages();
+            } catch (error) {
+                console.error('Failed to import:', error);
+                showToast('Failed to import translations', 'error');
+            }
+        }
+
+        // Toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Handle editor language select change
+        document.getElementById('editor-language-select')?.addEventListener('change', (e) => {
+            if (e.target.value) {
+                selectLanguage(e.target.value);
+            }
+        });
+    </script>
+</body>
+</html>

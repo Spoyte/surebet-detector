@@ -8,6 +8,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { useAuthStore } from './store/authStore';
 import { useNotificationStore } from './store/notificationStore';
 import { useOfflineStore } from './store/offlineStore';
+import { useLanguageStore } from './store/languageStore';
 import { ThemeProvider } from './theme/ThemeProvider';
 
 import { OpportunitiesScreen } from './screens/OpportunitiesScreen';
@@ -110,6 +111,7 @@ export default function App() {
   const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
   const { initializeNotifications } = useNotificationStore();
   const { initialize: initializeOffline } = useOfflineStore();
+  const { initialize: initializeLanguage } = useLanguageStore();
   const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
@@ -117,6 +119,7 @@ export default function App() {
       await checkAuth();
       await initializeNotifications();
       await initializeOffline();
+      await initializeLanguage();
       setAppReady(true);
     }
     init();

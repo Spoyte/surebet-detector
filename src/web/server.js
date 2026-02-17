@@ -26,6 +26,9 @@ const SeasonalityAnalyzer = require('../seasonality-analyzer');
 const WebhookAlertManager = require('../webhook-alerts');
 const ThirdPartyAPI = require('../third-party-api');
 const ScreenshotManager = require('../screenshot-manager');
+const { GraphQLServer } = require('../graphql/server');
+const { DeepLinkManager } = require('../deep-link-manager');
+const { WidgetDataProvider } = require('../widget-data-provider');
 
 class WebDashboard {
     constructor(config, loggerInstances = {}) {
@@ -90,8 +93,14 @@ class WebDashboard {
             retentionDays: 365,
             enableAutoCleanup: true
         });
+        this.deepLinkManager = new DeepLinkManager({
+            baseUrl: config.BASE_URL || `https://localhost:${config.PORT || 3000}`,
+            appScheme: config.APP_SCHEME || 'surebet',
+            linkTTL: config.LINK_TTL || 24 * 60 * 60 * 1000,
+        });
         this.latestOpportunities = null;
         this.latestMovementAnalysis = null;
+        this.graphQLServer = null;
         
         // Setup event handlers
         this.setupLiveTrackerEvents();
@@ -107,6 +116,27 @@ class WebDashboard {
         this.app.use(this.requestLogger.bind(this));
         
         this.setupRoutes();
+        this.setupGraphQL();
+    }
+    
+    /**
+     * Setup GraphQL server
+     */
+    async setupGraphQL() {
+        try {
+            this.graphQLServer = new GraphQLServer({
+                port: this.config.GRAPHQL_PORT || 4000,
+                path: '/graphql',
+            });
+            await this.graphQLServer.initialize();
+            if (this.logger) {
+                this.logger.info('GraphQL server initialized', { category: 'startup' });
+            }
+        } catch (err) {
+            if (this.logger) {
+                this.logger.error('Failed to initialize GraphQL server', { error: err.message, category: 'startup' });
+            }
+        }
     }
     
     /**
@@ -2119,6 +2149,220 @@ class WebDashboard {
 
         // Screenshot Management API
         this.setupScreenshotRoutes();
+
+        // Deep Linking API
+        this.setupDeepLinkRoutes();
+    }
+
+    setupDeepLinkRoutes() {
+        // Apple App Site Association (for iOS universal links)
+        this.app.get('/.well-known/apple-app-site-association', (req, res) => {
+            res.json(this.deepLinkManager.generateAppleAppSiteAssociation());
+        });
+
+        // Android Asset Links (for Android app links)
+        this.app.get('/.well-known/assetlinks.json', (req, res) => {
+            res.json(this.deepLinkManager.generateAndroidAssetLinks());
+        });
+
+        // Create opportunity share link
+        this.app.post('/api/links/opportunity', async (req, res) => {
+            try {
+                const { opportunityId, ...options } = req.body;
+                
+                // Get opportunity data
+                const opportunity = await this.analyzer.getOpportunityById?.(opportunityId) || 
+                                   { id: opportunityId, ...req.body.opportunityData };
+                
+                if (!opportunity) {
+                    return res.status(404).json({ error: 'Opportunity not found' });
+                }
+
+                const link = this.deepLinkManager.createOpportunityLink(opportunity, options);
+                res.json({ success: true, link });
+            } catch (error) {
+                this.logger?.error('Failed to create opportunity link', { error: error.message });
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Create bet share link
+        this.app.post('/api/links/bet', async (req, res) => {
+            try {
+                const { betId, ...options } = req.body;
+                
+                // Get bet data from bankroll manager
+                const bet = this.bankrollManager.getBetById?.(betId) ||
+                           { id: betId, ...req.body.betData };
+                
+                if (!bet) {
+                    return res.status(404).json({ error: 'Bet not found' });
+                }
+
+                const link = this.deepLinkManager.createBetLink(bet, options);
+                res.json({ success: true, link });
+            } catch (error) {
+                this.logger?.error('Failed to create bet link', { error: error.message });
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Create analytics share link
+        this.app.post('/api/links/analytics', async (req, res) => {
+            try {
+                const { analyticsData, ...options } = req.body;
+                const link = this.deepLinkManager.createAnalyticsLink(analyticsData, options);
+                res.json({ success: true, link });
+            } catch (error) {
+                this.logger?.error('Failed to create analytics link', { error: error.message });
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Resolve short link (opportunity)
+        this.app.get('/o/:linkId', async (req, res) => {
+            try {
+                const { linkId } = req.params;
+                const linkData = this.deepLinkManager.resolveLink(linkId);
+
+                if (!linkData) {
+                    return res.status(404).send('Link not found or expired');
+                }
+
+                // Check if request is from mobile app
+                const userAgent = req.headers['user-agent'] || '';
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent);
+                const isAppInstalled = req.headers['x-surebet-app'] === 'true';
+
+                if (isAppInstalled) {
+                    // Redirect to app
+                    const appLink = this.deepLinkManager.getAppLink(linkData);
+                    return res.redirect(appLink);
+                }
+
+                if (isMobile) {
+                    // Show interstitial page for mobile users
+                    const html = this.deepLinkManager.generateInterstitialPage(
+                        linkData,
+                        this.config.APP_STORE_URL || 'https://apps.apple.com/app/surebet',
+                        this.config.PLAY_STORE_URL || 'https://play.google.com/store/apps/details?id=com.surebet'
+                    );
+                    return res.send(html);
+                }
+
+                // Desktop: redirect to web dashboard
+                res.redirect(`/opportunity/${linkId}`);
+            } catch (error) {
+                this.logger?.error('Failed to resolve link', { error: error.message, linkId: req.params.linkId });
+                res.status(500).send('Error processing link');
+            }
+        });
+
+        // Resolve bet link
+        this.app.get('/b/:linkId', async (req, res) => {
+            try {
+                const { linkId } = req.params;
+                const linkData = this.deepLinkManager.resolveLink(linkId);
+
+                if (!linkData) {
+                    return res.status(404).send('Link not found or expired');
+                }
+
+                const userAgent = req.headers['user-agent'] || '';
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent);
+                const isAppInstalled = req.headers['x-surebet-app'] === 'true';
+
+                if (isAppInstalled) {
+                    const appLink = this.deepLinkManager.getAppLink(linkData);
+                    return res.redirect(appLink);
+                }
+
+                if (isMobile) {
+                    const html = this.deepLinkManager.generateInterstitialPage(
+                        linkData,
+                        this.config.APP_STORE_URL || 'https://apps.apple.com/app/surebet',
+                        this.config.PLAY_STORE_URL || 'https://play.google.com/store/apps/details?id=com.surebet'
+                    );
+                    return res.send(html);
+                }
+
+                res.redirect(`/bet/${linkData.betId}`);
+            } catch (error) {
+                this.logger?.error('Failed to resolve bet link', { error: error.message, linkId: req.params.linkId });
+                res.status(500).send('Error processing link');
+            }
+        });
+
+        // Resolve analytics link
+        this.app.get('/a/:linkId', async (req, res) => {
+            try {
+                const { linkId } = req.params;
+                const linkData = this.deepLinkManager.resolveLink(linkId);
+
+                if (!linkData) {
+                    return res.status(404).send('Link not found or expired');
+                }
+
+                const userAgent = req.headers['user-agent'] || '';
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent);
+                const isAppInstalled = req.headers['x-surebet-app'] === 'true';
+
+                if (isAppInstalled) {
+                    const appLink = this.deepLinkManager.getAppLink(linkData);
+                    return res.redirect(appLink);
+                }
+
+                if (isMobile) {
+                    const html = this.deepLinkManager.generateInterstitialPage(
+                        linkData,
+                        this.config.APP_STORE_URL || 'https://apps.apple.com/app/surebet',
+                        this.config.PLAY_STORE_URL || 'https://play.google.com/store/apps/details?id=com.surebet'
+                    );
+                    return res.send(html);
+                }
+
+                res.redirect('/analytics');
+            } catch (error) {
+                this.logger?.error('Failed to resolve analytics link', { error: error.message, linkId: req.params.linkId });
+                res.status(500).send('Error processing link');
+            }
+        });
+
+        // Get link metadata (for preview)
+        this.app.get('/api/links/:linkId', (req, res) => {
+            try {
+                const metadata = this.deepLinkManager.getLinkMetadata(req.params.linkId);
+                if (!metadata) {
+                    return res.status(404).json({ error: 'Link not found or expired' });
+                }
+                res.json(metadata);
+            } catch (error) {
+                this.logger?.error('Failed to get link metadata', { error: error.message });
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get link statistics
+        this.app.get('/api/links/stats', (req, res) => {
+            try {
+                const stats = this.deepLinkManager.getStats();
+                res.json(stats);
+            } catch (error) {
+                this.logger?.error('Failed to get link stats', { error: error.message });
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Cleanup expired links (admin endpoint)
+        this.app.post('/api/links/cleanup', (req, res) => {
+            try {
+                const cleaned = this.deepLinkManager.cleanupExpiredLinks();
+                res.json({ success: true, cleaned });
+            } catch (error) {
+                this.logger?.error('Failed to cleanup links', { error: error.message });
+                res.status(500).json({ error: error.message });
+            }
+        });
     }
 
     setupThirdPartyAPIRoutes() {
@@ -3887,6 +4131,17 @@ class WebDashboard {
                 console.error('Failed to initialize live tracker:', error.message);
             }
             
+            // Start GraphQL server
+            try {
+                if (this.graphQLServer) {
+                    await this.graphQLServer.start();
+                    this.logger?.info('GraphQL server started', { category: 'server' });
+                    console.log(`📊 GraphQL API available at http://localhost:${this.config.GRAPHQL_PORT || 4000}/graphql`);
+                }
+            } catch (error) {
+                this.logger?.error('Failed to start GraphQL server', { error: error.message, category: 'server' });
+            }
+            
             // Initialize WebSocket server (attached to HTTP server)
             try {
                 await this.wsServer.init(server);
@@ -4014,6 +4269,16 @@ class WebDashboard {
         this.wsServer.stop();
         this.settlementTracker.stop();
         this.retentionManager.stopScheduledTasks();
+        
+        // Stop GraphQL server
+        try {
+            if (this.graphQLServer) {
+                await this.graphQLServer.stop();
+                this.logger?.info('GraphQL server stopped', { category: 'shutdown' });
+            }
+        } catch (error) {
+            this.logger?.error('Failed to stop GraphQL server', { error: error.message, category: 'shutdown' });
+        }
         
         // Shutdown metrics collector
         try {

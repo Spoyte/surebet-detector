@@ -11,11 +11,17 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
+import { useLanguageStore } from '../store/languageStore';
+import { LanguageSelector } from '../components/LanguageSelector';
 
 export function ProfileScreen() {
   const { user, logout, enableBiometric, biometricEnabled } = useAuthStore();
   const { settings, updateSettings } = useNotificationStore();
+  const { currentLanguage, availableLanguages } = useLanguageStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
+
+  const currentLanguageInfo = availableLanguages.find(l => l.code === currentLanguage);
 
   async function handleLogout() {
     Alert.alert(
@@ -163,6 +169,13 @@ export function ProfileScreen() {
         })}
 
         {renderSettingItem({
+          icon: '🌐',
+          title: 'Language',
+          subtitle: `${currentLanguageInfo?.flag} ${currentLanguageInfo?.nativeName}`,
+          onPress: () => setLanguageModalVisible(true)
+        })}
+
+        {renderSettingItem({
           icon: '🌙',
           title: 'Dark Mode',
           subtitle: 'Always on',
@@ -228,6 +241,11 @@ export function ProfileScreen() {
       <View style={styles.footer}>
         <Text style={styles.footerText}>Surebet Detector © 2026</Text>
       </View>
+
+      <LanguageSelector
+        visible={languageModalVisible}
+        onClose={() => setLanguageModalVisible(false)}
+      />
     </ScrollView>
   );
 }
