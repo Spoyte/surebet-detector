@@ -22,8 +22,13 @@ class AdvancedAnalytics {
   
   ensureDirectories() {
     [this.analyticsDir, this.historyDir].forEach(dir => {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+      try {
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+      } catch (err) {
+        // Silently fail in read-only environments (e.g., Vercel)
+        console.warn(`Warning: Could not create directory ${dir}: ${err.message}`);
       }
     });
   }

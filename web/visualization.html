@@ -455,6 +455,7 @@
         </div>
     </div>
 
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="/data-visualization.js"></script>
     <script>
         // Initialize dashboard
@@ -604,13 +605,17 @@
         }
 
         function downloadChart(type) {
-            // Implementation for downloading charts
-            console.log(`Downloading ${type} chart...`);
+            if (dashboard) {
+                dashboard.exportChart(type, 'png');
+            }
         }
 
         function toggleChartType(type) {
-            // Implementation for toggling chart types
-            console.log(`Toggling ${type} chart type...`);
+            // Toggle between line and bar view for profit chart
+            if (type === 'profit' && dashboard) {
+                console.log('Toggling profit chart view...');
+                // Future enhancement: switch between line and bar chart
+            }
         }
     </script>
 </body>

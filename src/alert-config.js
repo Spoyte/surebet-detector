@@ -171,7 +171,13 @@ class AlertConfig {
             // Ensure directory exists
             const dir = path.dirname(this.configPath);
             if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
+                try {
+                    fs.mkdirSync(dir, { recursive: true });
+                } catch (mkdirErr) {
+                    // Silently fail in read-only environments (e.g., Vercel)
+                    console.warn(`Warning: Could not create alert config directory: ${mkdirErr.message}`);
+                    return false;
+                }
             }
             
             this.config.updatedAt = new Date().toISOString();
