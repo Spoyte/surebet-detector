@@ -102,7 +102,27 @@
   font-weight: 500;
 }
 
-/* RTL Support */
+/* RTL Language Names - ensure proper display */
+.language-option .language-name[dir="rtl"],
+.language-option:has(.language-flag + .language-name:contains("العربية")) .language-name,
+.language-option:has(.language-flag + .language-name:contains("עברית")) .language-name {
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+}
+
+/* ============================================
+   RTL (Right-to-Left) Support
+   ============================================ */
+
+/* Base RTL styles */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] body {
+  direction: rtl;
+}
+
+/* Language switcher RTL */
 [dir="rtl"] .language-switcher {
   margin-right: 0;
   margin-left: 0.75rem;
@@ -111,6 +131,293 @@
 [dir="rtl"] .language-menu {
   right: auto;
   left: 0;
+}
+
+[dir="rtl"] .language-option {
+  text-align: right;
+}
+
+/* Navigation RTL */
+[dir="rtl"] .nav {
+  direction: rtl;
+}
+
+[dir="rtl"] .nav-brand {
+  margin-right: 0;
+  margin-left: auto;
+}
+
+[dir="rtl"] .nav-stats {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+[dir="rtl"] .nav-stats .btn {
+  margin-right: 0;
+  margin-left: 0.5rem;
+}
+
+[dir="rtl"] .nav-stats .btn:last-child {
+  margin-left: 0;
+}
+
+/* Hero section RTL */
+[dir="rtl"] .hero {
+  direction: rtl;
+}
+
+[dir="rtl"] .hero-content {
+  text-align: right;
+}
+
+[dir="rtl"] .hero-actions {
+  justify-content: flex-start;
+}
+
+[dir="rtl"] .hero-actions .btn {
+  margin-right: 0;
+  margin-left: 0.75rem;
+}
+
+[dir="rtl"] .hero-actions .btn:last-child {
+  margin-left: 0;
+}
+
+/* Summary cards RTL */
+[dir="rtl"] .summary-cards {
+  direction: rtl;
+}
+
+[dir="rtl"] .summary-card {
+  text-align: right;
+}
+
+/* Main content RTL */
+[dir="rtl"] .main {
+  direction: rtl;
+}
+
+[dir="rtl"] .section-header {
+  text-align: right;
+}
+
+[dir="rtl"] .section-header h2 {
+  text-align: right;
+}
+
+/* Tables RTL */
+[dir="rtl"] .opportunities-table {
+  direction: rtl;
+}
+
+[dir="rtl"] .opportunities-table th,
+[dir="rtl"] .opportunities-table td {
+  text-align: right;
+}
+
+[dir="rtl"] .opportunities-table th:first-child,
+[dir="rtl"] .opportunities-table td:first-child {
+  text-align: right;
+}
+
+[dir="rtl"] .opportunities-table th:last-child,
+[dir="rtl"] .opportunities-table td:last-child {
+  text-align: left;
+}
+
+/* Opportunity cards RTL */
+[dir="rtl"] .opportunity-card {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir="rtl"] .opportunity-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .opportunity-teams {
+  text-align: right;
+}
+
+[dir="rtl"] .opportunity-odds {
+  direction: ltr; /* Keep odds LTR for numbers */
+}
+
+[dir="rtl"] .opportunity-footer {
+  flex-direction: row-reverse;
+}
+
+/* Modal RTL */
+[dir="rtl"] .modal-overlay {
+  direction: rtl;
+}
+
+[dir="rtl"] .modal {
+  text-align: right;
+}
+
+[dir="rtl"] .modal-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .modal-close {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Forms RTL */
+[dir="rtl"] input,
+[dir="rtl"] select,
+[dir="rtl"] textarea {
+  text-align: right;
+}
+
+[dir="rtl"] input[type="number"],
+[dir="rtl"] input[type="email"],
+[dir="rtl"] input[type="tel"] {
+  direction: ltr; /* Keep numbers and emails LTR */
+  text-align: left;
+}
+
+[dir="rtl"] .form-group label {
+  text-align: right;
+}
+
+[dir="rtl"] .form-row {
+  flex-direction: row-reverse;
+}
+
+/* Buttons RTL */
+[dir="rtl"] .btn {
+  direction: rtl;
+}
+
+[dir="rtl"] .btn-icon {
+  margin-right: 0;
+  margin-left: 0.5rem;
+}
+
+[dir="rtl"] .btn-icon:last-child {
+  margin-left: 0;
+}
+
+/* Filters RTL */
+[dir="rtl"] .filters {
+  direction: rtl;
+}
+
+[dir="rtl"] .filter-group {
+  text-align: right;
+}
+
+[dir="rtl"] .filter-group label {
+  text-align: right;
+}
+
+/* Stats and metrics RTL */
+[dir="rtl"] .stat-item {
+  text-align: right;
+}
+
+[dir="rtl"] .stat-value {
+  direction: ltr;
+  display: inline-block;
+}
+
+/* Charts and visualizations RTL */
+[dir="rtl"] .chart-container {
+  direction: ltr; /* Charts usually work better LTR */
+}
+
+[dir="rtl"] .chart-legend {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Live matches section RTL */
+[dir="rtl"] .live-section {
+  direction: rtl;
+}
+
+[dir="rtl"] .live-match {
+  text-align: right;
+}
+
+[dir="rtl"] .live-match-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .live-score {
+  direction: ltr;
+}
+
+/* Settings panel RTL */
+[dir="rtl"] .settings-panel {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir="rtl"] .settings-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .settings-section h3 {
+  text-align: right;
+}
+
+/* Toast notifications RTL */
+[dir="rtl"] .toast {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir="rtl"] .toast-icon {
+  margin-right: 0;
+  margin-left: 0.75rem;
+}
+
+/* Bookmaker cards RTL */
+[dir="rtl"] .bookmaker-card {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir="rtl"] .bookmaker-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .bookmaker-logo {
+  margin-right: 0;
+  margin-left: 1rem;
+}
+
+/* Bet slip RTL */
+[dir="rtl"] .bet-slip {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir="rtl"] .bet-slip-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .bet-item {
+  text-align: right;
+}
+
+[dir="rtl"] .bet-odds {
+  direction: ltr;
+}
+
+/* Profit/loss display RTL */
+[dir="rtl"] .profit-display {
+  direction: ltr;
+  display: inline-flex;
+}
+
+[dir="rtl"] .profit-display .currency {
+  margin-left: 0;
+  margin-right: 0.25rem;
 }
 
 /* Mobile adjustments */
@@ -141,4 +448,74 @@
   .language-menu.open {
     transform: translateY(0);
   }
+  
+  /* Mobile RTL adjustments */
+  [dir="rtl"] .language-switcher {
+    margin-right: 0;
+    margin-left: 0.5rem;
+  }
+  
+  [dir="rtl"] .nav-stats {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  
+  [dir="rtl"] .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  [dir="rtl"] .hero-actions .btn {
+    margin-left: 0;
+    margin-bottom: 0.5rem;
+  }
+  
+  [dir="rtl"] .summary-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Arabic and Hebrew specific font adjustments */
+[dir="rtl"][lang="ar"] body,
+[dir="rtl"][lang="he"] body {
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  line-height: 1.6;
+}
+
+[dir="rtl"][lang="ar"] h1,
+[dir="rtl"][lang="ar"] h2,
+[dir="rtl"][lang="ar"] h3,
+[dir="rtl"][lang="he"] h1,
+[dir="rtl"][lang="he"] h2,
+[dir="rtl"][lang="he"] h3 {
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Bidirectional text support */
+[dir="rtl"] .bidi-text {
+  unicode-bidi: embed;
+}
+
+[dir="rtl"] .bidi-isolate {
+  unicode-bidi: isolate;
+}
+
+/* Preserve LTR for specific elements */
+[dir="rtl"] .preserve-ltr {
+  direction: ltr;
+  text-align: left;
+}
+
+[dir="rtl"] code,
+[dir="rtl"] pre,
+[dir="rtl"] .code-block {
+  direction: ltr;
+  text-align: left;
+}
+
+[dir="rtl"] .timestamp,
+[dir="rtl"] .datetime {
+  direction: ltr;
+  display: inline-block;
 }

@@ -20,8 +20,9 @@ class SurebetI18n {
     // Load saved language preference
     await this.loadUserPreferences();
     
-    // Set HTML lang attribute
+    // Set HTML lang attribute and RTL direction
     document.documentElement.lang = this.currentLanguage;
+    this.updateDirection();
     
     // Load initial translations
     await this.loadNamespace('common');
@@ -32,7 +33,31 @@ class SurebetI18n {
     // Create language switcher UI
     this.createLanguageSwitcher();
     
-    console.log(`[i18n] Initialized with language: ${this.currentLanguage}`);
+    console.log(`[i18n] Initialized with language: ${this.currentLanguage}, RTL: ${this.isRTL()}`);
+  }
+
+  /**
+   * Check if current language is RTL
+   */
+  isRTL() {
+    const rtlLanguages = ['ar', 'he', 'fa', 'ur', 'yi', 'ku'];
+    return rtlLanguages.includes(this.currentLanguage);
+  }
+
+  /**
+   * Update document direction based on current language
+   */
+  updateDirection() {
+    const isRTL = this.isRTL();
+    document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+    document.body.classList.toggle('rtl', isRTL);
+    
+    // Update meta viewport for RTL
+    const viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport && isRTL) {
+      // Ensure proper rendering on mobile for RTL
+      viewport.content = viewport.content.replace('width=device-width', 'width=device-width, shrink-to-fit=no');
+    }
   }
 
   /**
@@ -234,6 +259,9 @@ class SurebetI18n {
     this.currentLanguage = language;
     localStorage.setItem('surebet-language', language);
     document.documentElement.lang = language;
+    
+    // Update RTL direction
+    this.updateDirection();
 
     // Clear loaded namespaces to reload in new language
     this.loadedNamespaces.clear();
@@ -247,13 +275,36 @@ class SurebetI18n {
 
     // Re-apply translations
     this.applyTranslations();
+    
+    // Update language switcher UI
+    this.updateLanguageSwitcher();
 
     // Dispatch event for other components
     window.dispatchEvent(new CustomEvent('languageChanged', { 
-      detail: { language } 
+      detail: { language, isRTL: this.isRTL() } 
     }));
 
-    console.log(`[i18n] Language changed to: ${language}`);
+    console.log(`[i18n] Language changed to: ${language}, RTL: ${this.isRTL()}`);
+  }
+
+  /**
+   * Update language switcher UI after language change
+   */
+  updateLanguageSwitcher() {
+    const switcher = document.getElementById('language-switcher');
+    if (!switcher) return;
+    
+    const btn = switcher.querySelector('.language-btn');
+    const flag = btn.querySelector('.language-flag');
+    const code = btn.querySelector('.language-code');
+    
+    flag.textContent = this.getLanguageFlag(this.currentLanguage);
+    code.textContent = this.currentLanguage.toUpperCase();
+    
+    // Update active state in menu
+    switcher.querySelectorAll('.language-option').forEach(option => {
+      option.classList.toggle('active', option.getAttribute('onclick').includes(`'${this.currentLanguage}'`));
+    });
   }
 
   /**
@@ -312,13 +363,15 @@ class SurebetI18n {
    */
   getAvailableLanguages() {
     return [
-      { code: 'en', name: 'English', flag: '🇬🇧' },
-      { code: 'fr', name: 'Français', flag: '🇫🇷' },
-      { code: 'es', name: 'Español', flag: '🇪🇸' },
-      { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
-      { code: 'it', name: 'Italiano', flag: '🇮🇹' },
-      { code: 'pt', name: 'Português', flag: '🇵🇹' },
-      { code: 'nl', name: 'Nederlands', flag: '🇳🇱' }
+      { code: 'en', name: 'English', flag: '🇬🇧', rtl: false },
+      { code: 'fr', name: 'Français', flag: '🇫🇷', rtl: false },
+      { code: 'es', name: 'Español', flag: '🇪🇸', rtl: false },
+      { code: 'de', name: 'Deutsch', flag: '🇩🇪', rtl: false },
+      { code: 'it', name: 'Italiano', flag: '🇮🇹', rtl: false },
+      { code: 'pt', name: 'Português', flag: '🇵🇹', rtl: false },
+      { code: 'nl', name: 'Nederlands', flag: '🇳🇱', rtl: false },
+      { code: 'ar', name: 'العربية', flag: '🇸🇦', rtl: true },
+      { code: 'he', name: 'עברית', flag: '🇮🇱', rtl: true }
     ];
   }
 
