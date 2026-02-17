@@ -3705,6 +3705,109 @@ class WebDashboard {
                 res.status(500).json({ error: error.message });
             }
         });
+
+        // Hedge Calculator API
+        this.app.get('/api/hedge/positions', (req, res) => {
+            try {
+                const positions = this.analyzer.hedgeCalculator.getPositions();
+                res.json({ positions });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/hedge/positions', (req, res) => {
+            try {
+                const position = req.body;
+                const id = this.analyzer.hedgeCalculator.addPosition(position);
+                res.json({ id, position });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/hedge/positions/:id', (req, res) => {
+            try {
+                const { id } = req.params;
+                const position = this.analyzer.hedgeCalculator.getPosition(id);
+                if (!position) {
+                    return res.status(404).json({ error: 'Position not found' });
+                }
+                res.json(position);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.delete('/api/hedge/positions/:id', (req, res) => {
+            try {
+                const { id } = req.params;
+                const removed = this.analyzer.hedgeCalculator.removePosition(id);
+                res.json({ removed });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/hedge/opportunities', async (req, res) => {
+            try {
+                const data = await this.loadLatestData();
+                const allCurrentOdds = {};
+                
+                // Build map of current odds by event
+                for (const event of data.oddsData || []) {
+                    if (event.bookmakers && event.bookmakers[0]) {
+                        const odds = {};
+                        for (const market of event.bookmakers[0].markets || []) {
+                            if (market.key === 'h2h') {
+                                for (const outcome of market.outcomes) {
+                                    odds[outcome.name] = outcome.price;
+                                }
+                            }
+                        }
+                        odds.bookmaker = event.bookmakers[0].title;
+                        allCurrentOdds[event.id] = odds;
+                    }
+                }
+                
+                const opportunities = this.analyzer.hedgeCalculator.findHedgeOpportunities(allCurrentOdds);
+                res.json(opportunities);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/hedge/calculate', (req, res) => {
+            try {
+                const { position, currentOdds } = req.body;
+                const opportunities = this.analyzer.hedgeCalculator.calculateHedgeOpportunities(
+                    position, 
+                    currentOdds
+                );
+                res.json({ opportunities, count: opportunities.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.get('/api/hedge/summary', (req, res) => {
+            try {
+                const summary = this.analyzer.hedgeCalculator.getHedgeSummary();
+                res.json(summary);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        this.app.post('/api/hedge/record', (req, res) => {
+            try {
+                const { positionId, hedge } = req.body;
+                const recorded = this.analyzer.hedgeCalculator.recordHedgePlaced(positionId, hedge);
+                res.json({ recorded });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
     }
 
     start() {

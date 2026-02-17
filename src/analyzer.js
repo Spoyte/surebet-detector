@@ -4,6 +4,7 @@ const { BookmakerHealthMonitor } = require('./bookmaker-health-monitor.js');
 const CorrelationDetector = require('./correlation-detector.js');
 const ValueBettingDetector = require('./value-betting-detector.js');
 const { OddsLineShopper } = require('./odds-line-shopper.js');
+const { HedgeCalculator } = require('./hedge-calculator.js');
 
 /**
  * Enhanced analyzer with better filtering and categorization
@@ -33,6 +34,13 @@ class OpportunityAnalyzer {
             includeExchange: config.LINE_SHOP_INCLUDE_EXCHANGE !== 'false',
             logger: console
         });
+        this.hedgeCalculator = new HedgeCalculator({
+            dataDir: config.DATA_DIR,
+            minGuaranteedProfit: parseFloat(config.HEDGE_MIN_PROFIT) || 0,
+            maxHedgeRatio: parseFloat(config.HEDGE_MAX_RATIO) || 2.0,
+            targetProfitLock: parseFloat(config.HEDGE_PROFIT_LOCK) || 0.70,
+            logger: console
+        });
         this.MIN_EV_THRESHOLD = parseFloat(config.MIN_EV_THRESHOLD) || 5;
         this.MAX_EV_DISPLAY = 100; // Cap display at 100% to avoid unrealistic values
         this.SUSPICIOUS_ODDS_RATIO = 2.5; // Flag if odds >2.5x Pinnacle
@@ -45,6 +53,7 @@ class OpportunityAnalyzer {
         await this.healthMonitor.init();
         await this.valueBettingDetector.init();
         await this.oddsLineShopper.init();
+        await this.hedgeCalculator.init();
         return this;
     }
 
