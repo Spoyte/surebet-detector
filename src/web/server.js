@@ -669,6 +669,17 @@ class WebDashboard {
             }
         });
 
+        // Visualization Data API
+        this.app.get('/api/analytics/visualization-data', async (req, res) => {
+            try {
+                const range = req.query.range || '30d';
+                const data = await this.getVisualizationData(range);
+                res.json(data);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
         // Bet Settlement API
         this.app.get('/api/settlements/bets', async (req, res) => {
             try {
@@ -1953,6 +1964,11 @@ class WebDashboard {
             res.sendFile(path.join(__dirname, '../../web/analytics.html'));
         });
 
+        // Visualization Dashboard Page
+        this.app.get('/visualization', (req, res) => {
+            res.sendFile(path.join(__dirname, '../../web/visualization.html'));
+        });
+
         // Settlement Tracker Page
         this.app.get('/settlements', (req, res) => {
             res.sendFile(path.join(__dirname, '../../web/settlements.html'));
@@ -2457,6 +2473,192 @@ class WebDashboard {
             return history;
         } catch (error) {
             return [];
+        }
+    }
+
+    /**
+     * Get visualization data for the analytics dashboard
+     * @param {string} range - Time range (7d, 30d, 90d, 1y, all)
+     * @returns {Object} Visualization data including stats and chart data
+     */
+    async getVisualizationData(range = '30d') {
+        const cacheDir = path.join(__dirname, '../../data/cache');
+        const dataDir = path.join(__dirname, '../../data');
+        
+        // Parse range to get cutoff date
+        const now = new Date();
+        let cutoffDate = new Date(0); // Default to all time
+        
+        switch (range) {
+            case '7d':
+                cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                break;
+            case '30d':
+                cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                break;
+            case '90d':
+                cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+                break;
+            case '1y':
+                cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+                break;
+            case 'all':
+            default:
+                cutoffDate = new Date(0);
+        }
+
+        try {
+            // Load historical data from cache files
+            const files = await fs.readdir(cacheDir).catch(() => []);
+            const jsonFiles = files.filter(f => f.startsWith('data_') && f.endsWith('.json'));
+            
+            const profitTrend = [];
+            const sportsDistribution = {};
+            const bookmakerStats = {};
+            const hourlyActivity = {};
+            
+            let totalProfit = 0;
+            let totalOpportunities = 0;
+            let totalArbitrage = 0;
+            let totalEV = 0;
+            
+            // Process cache files within range
+            const filesToProcess = jsonFiles.slice(-50); // Last 50 files for performance
+            
+            for (const file of filesToProcess) {
+                try {
+                    const data = await fs.readFile(path.join(cacheDir, file), 'utf8');
+                    const parsed = JSON.parse(data);
+                    const fileDate = new Date(parsed.timestamp);
+                    
+                    if (fileDate < cutoffDate) continue;
+                    
+                    const opportunities = this.analyzer.analyze(parsed);
+                    
+                    // Profit trend data
+                    const dateKey = fileDate.toISOString().split('T')[0];
+                    const dailyProfit = opportunities.arbitrage.reduce((sum, arb) => sum + (arb.profitPercent || 0), 0);
+                    
+                    profitTrend.push({
+                        date: dateKey,
+                        profit: Math.round(dailyProfit * 100) / 100,
+                        arbitrage: opportunities.arbitrage.length,
+                        ev: opportunities.positiveEV.length
+                    });
+                    
+                    // Sports distribution
+                    opportunities.arbitrage.forEach(arb => {
+                        sportsDistribution[arb.sport] = (sportsDistribution[arb.sport] || 0) + 1;
+                    });
+                    opportunities.positiveEV.forEach(ev => {
+                        sportsDistribution[ev.sport] = (sportsDistribution[ev.sport] || 0) + 1;
+                    });
+                    
+                    // Bookmaker stats
+                    opportunities.arbitrage.forEach(arb => {
+                        arb.legs.forEach(leg => {
+                            if (!bookmakerStats[leg.bookmaker]) {
+                                bookmakerStats[leg.bookmaker] = { count: 0, profit: 0 };
+                            }
+                            bookmakerStats[leg.bookmaker].count++;
+                            bookmakerStats[leg.bookmaker].profit += arb.profitPercent || 0;
+                        });
+                    });
+                    
+                    // Hourly activity
+                    const hour = fileDate.getHours();
+                    const day = fileDate.toLocaleDateString('en-US', { weekday: 'short' });
+                    const activityKey = `${day}-${hour}`;
+                    hourlyActivity[activityKey] = (hourlyActivity[activityKey] || 0) + opportunities.arbitrage.length + opportunities.positiveEV.length;
+                    
+                    totalArbitrage += opportunities.arbitrage.length;
+                    totalEV += opportunities.positiveEV.length;
+                    
+                } catch (e) {
+                    // Skip corrupted files
+                    continue;
+                }
+            }
+            
+            totalOpportunities = totalArbitrage + totalEV;
+            
+            // Calculate average profit
+            const avgProfit = totalOpportunities > 0 
+                ? Math.round((profitTrend.reduce((sum, p) => sum + p.profit, 0) / profitTrend.length) * 100) / 100
+                : 0;
+            
+            // Format opportunity distribution
+            const opportunityDistribution = Object.entries(sportsDistribution)
+                .map(([name, value]) => ({ name, value }))
+                .sort((a, b) => b.value - a.value)
+                .slice(0, 10);
+            
+            // Format bookmaker performance
+            const bookmakerPerformance = Object.entries(bookmakerStats)
+                .map(([name, stats]) => ({ 
+                    name, 
+                    profit: Math.round(stats.profit * 100) / 100,
+                    count: stats.count
+                }))
+                .sort((a, b) => b.profit - a.profit);
+            
+            // Format activity heatmap
+            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const activityHeatmap = [];
+            for (const day of days) {
+                for (let hour = 0; hour < 24; hour++) {
+                    const key = `${day}-${hour}`;
+                    activityHeatmap.push({
+                        day,
+                        hour,
+                        value: hourlyActivity[key] || 0
+                    });
+                }
+            }
+            
+            // Get active bookmakers count
+            const activeBookmakers = Object.keys(bookmakerStats).length;
+            
+            // Calculate changes (mock for now - would compare with previous period)
+            const profitChange = profitTrend.length > 1 
+                ? Math.round(((profitTrend[profitTrend.length - 1]?.profit || 0) - (profitTrend[0]?.profit || 0)) * 100) / 100
+                : 0;
+            
+            return {
+                stats: {
+                    totalProfit: Math.round(totalProfit * 100) / 100,
+                    totalOpportunities,
+                    avgProfit,
+                    activeBookmakers,
+                    profitChange,
+                    opportunityChange: totalOpportunities,
+                    avgChange: 0
+                },
+                profitTrend: profitTrend.sort((a, b) => new Date(a.date) - new Date(b.date)),
+                opportunityDistribution,
+                bookmakerPerformance,
+                activityHeatmap
+            };
+            
+        } catch (error) {
+            this.logger?.error('Failed to get visualization data', { error: error.message, category: 'analytics' });
+            
+            // Return empty data structure on error
+            return {
+                stats: {
+                    totalProfit: 0,
+                    totalOpportunities: 0,
+                    avgProfit: 0,
+                    activeBookmakers: 0,
+                    profitChange: 0,
+                    opportunityChange: 0,
+                    avgChange: 0
+                },
+                profitTrend: [],
+                opportunityDistribution: [],
+                bookmakerPerformance: [],
+                activityHeatmap: []
+            };
         }
     }
 
