@@ -25,6 +25,7 @@ const BookmakerKeyManager = require('../bookmaker-key-manager');
 const SeasonalityAnalyzer = require('../seasonality-analyzer');
 const WebhookAlertManager = require('../webhook-alerts');
 const ThirdPartyAPI = require('../third-party-api');
+const ScreenshotManager = require('../screenshot-manager');
 
 class WebDashboard {
     constructor(config, loggerInstances = {}) {
@@ -82,6 +83,12 @@ class WebDashboard {
         );
         this.thirdPartyAPI = new ThirdPartyAPI({
             dataDir: path.join(__dirname, '../../data')
+        });
+        this.screenshotManager = new ScreenshotManager({
+            screenshotsDir: path.join(__dirname, '../../data/screenshots'),
+            tempDir: path.join(__dirname, '../../data/temp'),
+            retentionDays: 365,
+            enableAutoCleanup: true
         });
         this.latestOpportunities = null;
         this.latestMovementAnalysis = null;
@@ -2109,6 +2116,9 @@ class WebDashboard {
 
         // Third-Party API Integration
         this.setupThirdPartyAPIRoutes();
+
+        // Screenshot Management API
+        this.setupScreenshotRoutes();
     }
 
     setupThirdPartyAPIRoutes() {
@@ -2117,6 +2127,263 @@ class WebDashboard {
             loadLatestData: this.loadLatestData.bind(this),
             analytics: this.analytics,
             settlementTracker: this.settlementTracker
+        });
+    }
+
+    setupScreenshotRoutes() {
+        // List screenshots with filtering
+        this.app.get('/api/screenshots', async (req, res) => {
+            try {
+                const filters = {
+                    type: req.query.type,
+                    bookmaker: req.query.bookmaker,
+                    betId: req.query.betId,
+                    startDate: req.query.startDate,
+                    endDate: req.query.endDate,
+                    search: req.query.search,
+                    limit: req.query.limit ? parseInt(req.query.limit) : undefined
+                };
+                const screenshots = this.screenshotManager.listScreenshots(filters);
+                res.json({ screenshots, count: screenshots.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get screenshot statistics
+        this.app.get('/api/screenshots/stats', async (req, res) => {
+            try {
+                const stats = this.screenshotManager.getStats();
+                res.json(stats);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get specific screenshot metadata
+        this.app.get('/api/screenshots/:id', async (req, res) => {
+            try {
+                const screenshot = this.screenshotManager.getScreenshot(req.params.id);
+                if (!screenshot) {
+                    return res.status(404).json({ error: 'Screenshot not found' });
+                }
+                res.json(screenshot);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // View screenshot (HTML wrapper for iframe)
+        this.app.get('/api/screenshots/:id/view', async (req, res) => {
+            try {
+                const screenshot = this.screenshotManager.getScreenshot(req.params.id);
+                if (!screenshot) {
+                    return res.status(404).json({ error: 'Screenshot not found' });
+                }
+                
+                const fs = require('fs');
+                const path = require('path');
+                const imagePath = path.join(this.screenshotManager.config.screenshotsDir, screenshot.filename);
+                const imageData = fs.readFileSync(imagePath, 'base64');
+                
+                const html = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <style>
+                            body { margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #1a1a2e; }
+                            img { max-width: 100%; max-height: 100vh; object-fit: contain; }
+                        </style>
+                    </head>
+                    <body>
+                        <img src="data:image/png;base64,${imageData}" alt="Screenshot" />
+                    </body>
+                    </html>
+                `;
+                
+                res.setHeader('Content-Type', 'text/html');
+                res.send(html);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Download screenshot file
+        this.app.get('/api/screenshots/:id/download', async (req, res) => {
+            try {
+                const screenshotPath = this.screenshotManager.getScreenshotPath(req.params.id);
+                if (!screenshotPath) {
+                    return res.status(404).json({ error: 'Screenshot not found' });
+                }
+                const screenshot = this.screenshotManager.getScreenshot(req.params.id);
+                res.download(screenshotPath, screenshot.filename);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Delete screenshot
+        this.app.delete('/api/screenshots/:id', async (req, res) => {
+            try {
+                const result = await this.screenshotManager.deleteScreenshot(req.params.id);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Export screenshots as ZIP
+        this.app.post('/api/screenshots/export/zip', async (req, res) => {
+            try {
+                const { ids, filters, includeThumbnails } = req.body;
+                const result = await this.screenshotManager.exportAsZip({
+                    ids,
+                    filters,
+                    includeThumbnails
+                });
+                
+                if (!result.success) {
+                    return res.status(400).json(result);
+                }
+                
+                res.download(result.filepath, result.filename, (err) => {
+                    if (err) {
+                        // Handle download error silently
+                    }
+                });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Export screenshots as PDF
+        this.app.post('/api/screenshots/export/pdf', async (req, res) => {
+            try {
+                const { ids, filters, title, includeMetadata } = req.body;
+                const result = await this.screenshotManager.exportAsPdf({
+                    ids,
+                    filters,
+                    title,
+                    includeMetadata
+                });
+                
+                if (!result.success) {
+                    return res.status(400).json(result);
+                }
+                
+                res.download(result.filepath, result.filename, (err) => {
+                    if (err) {
+                        // Handle download error silently
+                    }
+                });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Export screenshot metadata as CSV
+        this.app.post('/api/screenshots/export/csv', async (req, res) => {
+            try {
+                const { ids, filters } = req.body;
+                const result = await this.screenshotManager.exportAsCsv({
+                    ids,
+                    filters
+                });
+                
+                if (!result.success) {
+                    return res.status(400).json(result);
+                }
+                
+                res.setHeader('Content-Type', 'text/csv');
+                res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+                res.send(result.csv);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get screenshots for a specific bet
+        this.app.get('/api/bets/:betId/screenshots', async (req, res) => {
+            try {
+                const screenshots = this.screenshotManager.getScreenshotsForBet(req.params.betId);
+                res.json({ screenshots, count: screenshots.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Create dispute ticket
+        this.app.post('/api/disputes', async (req, res) => {
+            try {
+                const { betId, bookmaker, issue, description, screenshotIds, priority } = req.body;
+                const result = await this.screenshotManager.createDisputeTicket({
+                    betId,
+                    bookmaker,
+                    issue,
+                    description,
+                    screenshotIds,
+                    priority
+                });
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Get dispute ticket
+        this.app.get('/api/disputes/:id', async (req, res) => {
+            try {
+                const ticket = this.screenshotManager.getDisputeTicket(req.params.id);
+                if (!ticket) {
+                    return res.status(404).json({ error: 'Ticket not found' });
+                }
+                res.json(ticket);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // List dispute tickets
+        this.app.get('/api/disputes', async (req, res) => {
+            try {
+                const filters = {
+                    status: req.query.status,
+                    bookmaker: req.query.bookmaker,
+                    priority: req.query.priority,
+                    betId: req.query.betId
+                };
+                const disputes = this.screenshotManager.listDisputes(filters);
+                res.json({ disputes, count: disputes.length });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Update dispute status
+        this.app.patch('/api/disputes/:id/status', async (req, res) => {
+            try {
+                const { status, details } = req.body;
+                const result = await this.screenshotManager.updateDisputeStatus(req.params.id, status, details);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Run cleanup manually
+        this.app.post('/api/screenshots/cleanup', async (req, res) => {
+            try {
+                const result = await this.screenshotManager.runCleanup();
+                res.json({ success: true, result });
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
+
+        // Gallery page
+        this.app.get('/gallery', (req, res) => {
+            res.sendFile(path.join(__dirname, '../../web/gallery.html'));
         });
     }
 
