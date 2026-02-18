@@ -290,25 +290,35 @@ describe('OpportunityConfidenceScorer', () => {
   });
 
   describe('Events', () => {
-    it('should emit opportunityScored event', (done) => {
-      scorer.on('opportunityScored', (event) => {
-        expect(event.features).toBeDefined();
-        expect(event.score).toBeDefined();
-        expect(event.timestamp).toBeDefined();
-        done();
+    it('should emit opportunityScored event', async () => {
+      const eventPromise = new Promise((resolve) => {
+        scorer.once('opportunityScored', (event) => {
+          resolve(event);
+        });
       });
       
-      scorer.scoreOpportunity(baseFeatures);
+      await scorer.scoreOpportunity(baseFeatures);
+      const event = await eventPromise;
+      
+      expect(event).toBeDefined();
+      expect(event.features).toBeDefined();
+      expect(event.score).toBeDefined();
+      expect(event.timestamp).toBeDefined();
     });
 
-    it('should emit batchScored event', (done) => {
-      scorer.on('batchScored', (event) => {
-        expect(event.count).toBe(2);
-        expect(event.avgScore).toBeDefined();
-        done();
+    it('should emit batchScored event', async () => {
+      const eventPromise = new Promise((resolve) => {
+        scorer.once('batchScored', (event) => {
+          resolve(event);
+        });
       });
       
-      scorer.scoreBatch([baseFeatures, baseFeatures]);
+      await scorer.scoreBatch([baseFeatures, baseFeatures]);
+      const event = await eventPromise;
+      
+      expect(event).toBeDefined();
+      expect(event.count).toBe(2);
+      expect(event.avgScore).toBeDefined();
     });
   });
 
