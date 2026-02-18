@@ -9,6 +9,10 @@ import { ConfidenceScoringWebSocket } from './confidence-scoring-websocket.js';
 import { CrossSportArbitrageService } from './cross-sport-arbitrage-service.js';
 import { CrossSportArbitrageWebSocket } from './cross-sport-arbitrage-websocket.js';
 import createCrossSportRoutes from './web/cross-sport-routes.js';
+import { BookmakerLimitOptimizer, getBookmakerLimitOptimizer } from './bookmaker-limit-optimizer.js';
+import { BookmakerLimitWebSocket } from './bookmaker-limit-websocket.js';
+import { DynamicStakeSizer, getDynamicStakeSizer } from './dynamic-stake-sizing.js';
+import { DynamicStakeSizingWebSocket } from './dynamic-stake-sizing-websocket.js';
 
 /**
  * Surebet Detector - Real-time Odds Aggregation Service
@@ -180,6 +184,47 @@ async function main() {
 
   logger.info('Cross-sport arbitrage service initialized', { wsPort: crossSportWsPort });
 
+  // Initialize bookmaker limit optimizer
+  const limitOptimizer = getBookmakerLimitOptimizer();
+  
+  // Register bookmaker accounts from configuration
+  for (const config of BOOKMAKERS) {
+    const balance = parseFloat(process.env[`BALANCE_${config.id.toUpperCase()}`] || '1000');
+    const currency = process.env[`CURRENCY_${config.id.toUpperCase()}`] || 'EUR';
+    limitOptimizer.registerAccount(config.id, config.name, balance, currency);
+    
+    // Set default limits if provided in env
+    const maxStake = parseFloat(process.env[`LIMIT_MAX_${config.id.toUpperCase()}`] || '0');
+    if (maxStake > 0) {
+      limitOptimizer.setLimit(config.id, 'default', 1, maxStake, 'manual');
+    }
+  }
+  
+  // Start bookmaker limit WebSocket server
+  const limitWsPort = parseInt(process.env.LIMIT_WS_PORT || '8084');
+  const limitWs = new BookmakerLimitWebSocket(limitOptimizer, limitWsPort);
+  
+  logger.info('Bookmaker limit optimizer initialized', { wsPort: limitWsPort });
+
+  // Initialize dynamic stake sizer
+  const totalBankroll = parseFloat(process.env.TOTAL_BANKROLL || '10000');
+  const stakeSizer = getDynamicStakeSizer(totalBankroll, {
+    baseStakePercent: parseFloat(process.env.BASE_STAKE_PERCENT || '1.0'),
+    maxStakePercent: parseFloat(process.env.MAX_STAKE_PERCENT || '5.0'),
+    minStakePercent: parseFloat(process.env.MIN_STAKE_PERCENT || '0.1'),
+    kellyFraction: parseFloat(process.env.KELLY_FRACTION || '0.25'),
+    maxAbsoluteStake: parseFloat(process.env.MAX_ABSOLUTE_STAKE || '1000'),
+    minAbsoluteStake: parseFloat(process.env.MIN_ABSOLUTE_STAKE || '10'),
+    useKellyCriterion: process.env.USE_KELLY_CRITERION !== 'false',
+    dailyLossLimitPercent: parseFloat(process.env.DAILY_LOSS_LIMIT_PERCENT || '5.0')
+  });
+  
+  // Start dynamic stake sizing WebSocket server
+  const stakeWsPort = parseInt(process.env.STAKE_WS_PORT || '8085');
+  const stakeWs = new DynamicStakeSizingWebSocket(stakeSizer, stakeWsPort);
+  
+  logger.info('Dynamic stake sizing initialized', { wsPort: stakeWsPort, bankroll: totalBankroll });
+
   // Register event handlers
   engine.on('engine:started', () => {
     logger.info('Odds aggregation engine started');
@@ -265,12 +310,73 @@ async function main() {
         features
       );
 
+      // Optimize stakes considering bookmaker limits
+      if (opportunity.legs && opportunity.legs.length >= 2) {
+        try {
+          const optimizedStakes = limitOptimizer.optimizeStakes(
+            opportunity.id || `opp_${Date.now()}`,
+            opportunity.legs.map((leg: any) => ({
+              bookmakerId: leg.bookmakerId,
+              bookmakerName: leg.bookmakerName,
+              market: leg.market || opportunity.market || '1X2',
+              selection: leg.selection,
+              odds: leg.odds,
+              idealStake: leg.stake || 100,
+              minStake: leg.minStake || 1,
+              maxStake: leg.maxStake || Infinity,
+              currency: leg.currency || 'EUR'
+            })),
+            parseFloat(process.env.TOTAL_BANKROLL || '10000'),
+            {
+              maxBankrollPercent: parseFloat(process.env.MAX_BANKROLL_PERCENT || '0.1'),
+              minProfitPercent: parseFloat(process.env.MIN_PROFIT_PERCENT || '0.5'),
+              allowPartialFills: process.env.ALLOW_PARTIAL_FILLS === 'true',
+              preferOptimalOverSize: process.env.PREFER_OPTIMAL_OVER_SIZE !== 'false'
+            }
+          );
+          
+          logger.info('Stakes optimized for opportunity', {
+            opportunityId: opportunity.id,
+            isOptimal: optimizedStakes.isOptimal,
+            profitPercent: optimizedStakes.profitPercent,
+            constraintsApplied: optimizedStakes.constraintsApplied.length
+          });
+        } catch (optimizeError) {
+          logger.error('Failed to optimize stakes:', optimizeError);
+        }
+      }
+
       logger.info('Opportunity confidence scored', {
         match: opportunity.match,
         score: score.score,
         grade: score.grade,
         action: score.recommendedAction
       });
+      
+      // Calculate dynamic stake sizing based on confidence
+      try {
+        const stakeResult = stakeSizer.calculateStake(
+          opportunity.id || `opp_${Date.now()}`,
+          opportunity.match || 'Unknown Match',
+          score,
+          opportunity.odds || [2.0, 2.0],
+          opportunity.profitPercent || 1.0,
+          {
+            legs: opportunity.legs?.length || 2,
+            sport: opportunity.sport,
+            market: opportunity.market
+          }
+        );
+        
+        logger.info('Dynamic stake calculated', {
+          opportunityId: opportunity.id,
+          totalStake: stakeResult.totalStake,
+          recommendation: stakeResult.recommendation,
+          grade: score.grade
+        });
+      } catch (stakeError) {
+        logger.error('Failed to calculate dynamic stake:', stakeError);
+      }
     } catch (error) {
       logger.error('Failed to score opportunity:', error);
     }
@@ -306,22 +412,28 @@ async function main() {
   // Graceful shutdown
   process.on('SIGTERM', async () => {
     logger.info('SIGTERM received, shutting down gracefully');
+    await stakeWs.close();
+    await limitWs.close();
     await crossSportWs.close();
     await crossSportService.stop();
     await confidenceWs.close();
     await slippageWs.close();
     slippageProtector.dispose();
+    stakeSizer.dispose();
     await engine.stop();
     process.exit(0);
   });
 
   process.on('SIGINT', async () => {
     logger.info('SIGINT received, shutting down gracefully');
+    await stakeWs.close();
+    await limitWs.close();
     await crossSportWs.close();
     await crossSportService.stop();
     await confidenceWs.close();
     await slippageWs.close();
     slippageProtector.dispose();
+    stakeSizer.dispose();
     await engine.stop();
     process.exit(0);
   });
