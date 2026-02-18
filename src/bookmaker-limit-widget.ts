@@ -222,8 +222,8 @@ export class BookmakerLimitWidget extends EventEmitter {
     this.optimizer.on('stakesOptimized', (event) => {
       if (!event.result.isOptimal) {
         const constrainedBookmakers = event.result.legs
-          .filter(l => l.isConstrained)
-          .map(l => l.bookmakerName);
+          .filter((l: any) => l.isConstrained)
+          .map((l: any) => l.bookmakerName);
 
         if (constrainedBookmakers.length > 0) {
           this.addAlert({

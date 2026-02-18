@@ -468,9 +468,9 @@ export class BookmakerLimitWebSocket extends EventEmitter {
       for (const account of accounts) {
         for (const [marketKey, limit] of Array.from(account.limits.entries())) {
           allLimits.push({
+            ...limit,
             bookmakerId: account.bookmakerId,
-            market: marketKey,
-            ...limit
+            market: marketKey
           });
         }
       }

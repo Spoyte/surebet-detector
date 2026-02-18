@@ -403,7 +403,7 @@ export class SyntheticArbitrageDetector extends EventEmitter {
   private checkComponentArbitrage(
     eventMarkets: EventMarkets,
     syntheticMarket: SyntheticMarket,
-    combination: Array<{ market: string; selection: string; odds: number; bookmaker: string }
+    combination: Array<{ market: string; selection: string; odds: number; bookmaker: string }>
   ): SyntheticArbitrageOpportunity | null {
     // Check if components create arbitrage with other markets
     // This is a simplified check - full implementation would be more complex

@@ -117,8 +117,8 @@ export function createBookmakerLimitRoutes(
           currency: account.currency,
           isActive: account.isActive,
           limits: Array.from(account.limits.entries()).map(([market, limit]) => ({
-            market,
-            ...limit
+            ...limit,
+            market
           })),
           dynamicAdjustment: account.dynamicAdjustment,
           gubbingRisk: account.gubbingRisk,
@@ -204,8 +204,8 @@ export function createBookmakerLimitRoutes(
       }
 
       const limits = Array.from(account.limits.entries()).map(([m, l]) => ({
-        market: m,
-        ...l
+        ...l,
+        market: m
       }));
 
       res.json({

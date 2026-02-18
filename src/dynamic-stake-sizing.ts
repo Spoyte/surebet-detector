@@ -226,7 +226,7 @@ export class DynamicStakeSizer extends EventEmitter {
         confidenceScore: score,
         grade,
         kellyFraction: this.config.useKellyCriterion ? this.config.kellyFraction : undefined,
-        expectedValue: confidenceScore.expectedValue || 0,
+        expectedValue: (confidenceScore as any).expectedValue || 0,
         reasoning: this.buildReasoning(grade, score, gradeMultiplier, confidenceMultiplier),
         warnings: this.buildWarnings(grade, score),
         isSafe: this.isSafeStake(stakePerLeg, grade)
