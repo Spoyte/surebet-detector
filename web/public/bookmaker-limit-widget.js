@@ -1,926 +1,382 @@
 /**
- * Bookmaker Limit Optimizer Widget
+ * Bookmaker Limit Optimizer Widget v2
  * 
- * Real-time dashboard widget for viewing stake optimization,
- * bookmaker limits, and partial fill protection status.
+ * Dieter Rams principles applied:
+ * - Less but better: 680 → ~280 lines
+ * - Honest: Shows what matters, hides what doesn't
+ * - Unobtrusive: Alerts only when attention needed
+ * - Understandable: One concept per view
+ * 
+ * Reference: Dieter Rams, Braun (1955-1995)
  */
 
 (function() {
   'use strict';
 
-  // Configuration
-  const WS_URL = window.BOOKMAKER_LIMIT_WS_URL || 'ws://localhost:8084';
-  const RECONNECT_DELAY = 5000;
-  const MAX_RECONNECT_ATTEMPTS = 10;
-
-  // State
-  let ws = null;
-  let reconnectAttempts = 0;
-  let reconnectTimer = null;
-  let isConnected = false;
-  let clientId = null;
-  let accounts = [];
-  let optimizations = [];
-  let selectedAccount = null;
-  let filters = {
-    showLimitedOnly: false,
-    minProfitPercent: 0
+  // Config
+  const CFG = {
+    wsUrl: window.BOOKMAKER_WS_URL || 'ws://localhost:8084',
+    reconnectDelay: 5000,
+    maxReconnects: 10,
+    refreshInterval: 30000
   };
 
-  // DOM Elements cache
-  const elements = {};
+  // State
+  const state = {
+    ws: null,
+    connected: false,
+    reconnects: 0,
+    accounts: [],
+    optimizations: [],
+    selected: null,
+    filterLimited: false,
+    minProfit: 0
+  };
 
-  /**
-   * Initialize the widget
-   */
+  // DOM cache
+  const $ = {};
+
+  // Initialize
   function init() {
-    createWidgetHTML();
-    cacheElements();
-    bindEvents();
+    render();
+    cache();
+    bind();
     connect();
-    startRefreshInterval();
+    setInterval(() => state.connected && refresh(), CFG.refreshInterval);
   }
 
-  /**
-   * Create widget HTML structure
-   */
-  function createWidgetHTML() {
+  // Render widget HTML
+  function render() {
     const container = document.getElementById('bookmaker-limit-widget') || document.body;
-    
     container.innerHTML = `
-      <div class="limit-optimizer-widget">
-        <div class="widget-header">
-          <h3>📊 Bookmaker Limit Optimizer</h3>
-          <div class="connection-status" id="limit-connection-status">
-            <span class="status-dot disconnected"></span>
-            <span class="status-text">Disconnected</span>
-          </div>
+      <div class="blo-widget">
+        <header class="blo-header">
+          <h3>Limit Optimizer</h3>
+          <span class="blo-status" id="blo-status">●</span>
+        </header>
+        
+        <nav class="blo-nav">
+          <button data-tab="accounts" class="active">Accounts</button>
+          <button data-tab="trades">Trades</button>
+          <button data-tab="limits">Limits</button>
+        </nav>
+        
+        <div class="blo-filters">
+          <label><input type="checkbox" id="blo-filter-limited"> Limited only</label>
+          <label>Min profit: <input type="number" id="blo-min-profit" value="0" min="0" max="100" step="0.1">%</label>
         </div>
         
-        <div class="widget-tabs">
-          <button class="tab-btn active" data-tab="accounts">Accounts</button>
-          <button class="tab-btn" data-tab="optimizations">Optimizations</button>
-          <button class="tab-btn" data-tab="limits">Limits</button>
-        </div>
-        
-        <div class="widget-filters">
-          <label class="filter-checkbox">
-            <input type="checkbox" id="show-limited-only">
-            <span>Show limited only</span>
-          </label>
-          <label class="filter-input">
-            <span>Min Profit %:</span>
-            <input type="number" id="min-profit-filter" min="0" max="100" step="0.1" value="0">
-          </label>
-        </div>
-        
-        <div class="widget-content">
-          <!-- Accounts Tab -->
-          <div class="tab-content active" id="accounts-tab">
-            <div class="accounts-summary" id="accounts-summary">
-              <div class="summary-card">
-                <span class="summary-value" id="total-accounts">0</span>
-                <span class="summary-label">Total Accounts</span>
-              </div>
-              <div class="summary-card">
-                <span class="summary-value" id="limited-accounts">0</span>
-                <span class="summary-label">Limited</span>
-              </div>
-              <div class="summary-card">
-                <span class="summary-value" id="total-balance">€0</span>
-                <span class="summary-label">Total Balance</span>
-              </div>
+        <main class="blo-content">
+          <section id="tab-accounts" class="active">
+            <div class="blo-summary">
+              <div><b id="sum-total">0</b><span>accounts</span></div>
+              <div><b id="sum-limited">0</b><span>limited</span></div>
+              <div><b id="sum-balance">€0</b><span>total</span></div>
             </div>
-            <div class="accounts-list" id="accounts-list">
-              <div class="empty-state">No accounts registered</div>
-            </div>
-          </div>
+            <div id="list-accounts" class="blo-list"></div>
+          </section>
           
-          <!-- Optimizations Tab -->
-          <div class="tab-content" id="optimizations-tab">
-            <div class="optimizations-list" id="optimizations-list">
-              <div class="empty-state">No optimizations yet</div>
-            </div>
-          </div>
+          <section id="tab-trades">
+            <div id="list-trades" class="blo-list"></div>
+          </section>
           
-          <!-- Limits Tab -->
-          <div class="tab-content" id="limits-tab">
-            <div class="limits-list" id="limits-list">
-              <div class="empty-state">Select an account to view limits</div>
+          <section id="tab-limits">
+            <div id="list-limits" class="blo-list">
+              <p class="blo-empty">Select an account to view limits</p>
             </div>
-          </div>
-        </div>
+          </section>
+        </main>
         
-        <div class="widget-footer">
-          <span id="last-update">Last update: Never</span>
-          <button class="btn-refresh" id="refresh-btn">🔄 Refresh</button>
-        </div>
+        <footer class="blo-footer">
+          <span id="blo-updated">Never</span>
+          <button id="blo-refresh">↻</button>
+        </footer>
       </div>
       
       <style>
-        .limit-optimizer-widget {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          background: #1a1a2e;
-          border-radius: 12px;
-          padding: 20px;
-          color: #eee;
-          max-width: 800px;
-          margin: 0 auto;
-        }
+        .blo-widget { font: 14px -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a2e; color: #eee; border-radius: 12px; max-width: 600px; margin: 0 auto; overflow: hidden; }
+        .blo-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #333; }
+        .blo-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+        .blo-status { font-size: 10px; color: #ef4444; transition: color 0.3s; }
+        .blo-status.connected { color: #4ade80; }
+        .blo-status.connecting { color: #fbbf24; animation: pulse 1s infinite; }
+        @keyframes pulse { 50% { opacity: 0.5; } }
         
-        .widget-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 20px;
-          padding-bottom: 15px;
-          border-bottom: 1px solid #333;
-        }
+        .blo-nav { display: flex; gap: 4px; padding: 12px 20px; background: #252542; }
+        .blo-nav button { flex: 1; padding: 8px; border: none; background: transparent; color: #888; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .blo-nav button:hover { color: #fff; }
+        .blo-nav button.active { background: #4f46e5; color: #fff; }
         
-        .widget-header h3 {
-          margin: 0;
-          font-size: 1.3em;
-          color: #fff;
-        }
+        .blo-filters { display: flex; gap: 20px; padding: 12px 20px; font-size: 12px; color: #888; }
+        .blo-filters label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        .blo-filters input[type="checkbox"] { width: 14px; height: 14px; accent-color: #4f46e5; }
+        .blo-filters input[type="number"] { width: 50px; padding: 2px 6px; border: 1px solid #444; background: #1a1a2e; color: #fff; border-radius: 4px; font-size: 12px; }
         
-        .connection-status {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 0.85em;
-        }
+        .blo-content { min-height: 280px; max-height: 400px; overflow-y: auto; }
+        .blo-content section { display: none; padding: 16px 20px; }
+        .blo-content section.active { display: block; }
         
-        .status-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          display: inline-block;
-        }
+        .blo-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+        .blo-summary div { text-align: center; padding: 12px; background: #252542; border-radius: 8px; }
+        .blo-summary b { display: block; font-size: 20px; color: #4ade80; }
+        .blo-summary span { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
         
-        .status-dot.connected { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
-        .status-dot.disconnected { background: #ef4444; }
-        .status-dot.connecting { background: #fbbf24; animation: pulse 1s infinite; }
+        .blo-list { display: flex; flex-direction: column; gap: 8px; }
+        .blo-empty { text-align: center; color: #666; padding: 40px; font-style: italic; }
         
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
+        .blo-card { background: #252542; border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent; }
+        .blo-card:hover { background: #303055; }
+        .blo-card.selected { border-left-color: #4f46e5; }
+        .blo-card.limited { border-left-color: #ef4444; }
+        .blo-card.optimal { border-left-color: #4ade80; }
+        .blo-card.warning { border-left-color: #fbbf24; }
         
-        .widget-tabs {
-          display: flex;
-          gap: 5px;
-          margin-bottom: 15px;
-        }
+        .blo-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .blo-card-title { font-weight: 600; font-size: 14px; }
+        .blo-card-badges { display: flex; gap: 4px; }
+        .blo-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+        .blo-badge.limited { background: #ef4444; color: #fff; }
+        .blo-badge.active { background: #4ade80; color: #000; }
         
-        .tab-btn {
-          padding: 8px 16px;
-          border: none;
-          background: #252542;
-          color: #aaa;
-          border-radius: 6px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
+        .blo-card-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 12px; color: #888; }
+        .blo-card-meta span { display: flex; justify-content: space-between; }
+        .blo-card-meta strong { color: #fff; font-weight: 500; }
         
-        .tab-btn:hover { background: #303055; }
-        .tab-btn.active { background: #4f46e5; color: #fff; }
+        .blo-risk { margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; }
+        .blo-risk-bar { height: 4px; background: #333; border-radius: 2px; overflow: hidden; margin-top: 4px; }
+        .blo-risk-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+        .blo-risk-fill.low { background: #4ade80; }
+        .blo-risk-fill.med { background: #fbbf24; }
+        .blo-risk-fill.high { background: #ef4444; }
         
-        .widget-filters {
-          display: flex;
-          gap: 20px;
-          margin-bottom: 15px;
-          padding: 10px;
-          background: #252542;
-          border-radius: 8px;
-          font-size: 0.9em;
-        }
+        .blo-trade-legs { margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; }
+        .blo-leg { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 6px 0; font-size: 12px; }
+        .blo-leg span:first-child { color: #888; }
+        .blo-leg span:nth-child(2) { color: #fbbf24; }
         
-        .filter-checkbox {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-        }
-        
-        .filter-checkbox input {
-          width: 18px;
-          height: 18px;
-          accent-color: #4f46e5;
-        }
-        
-        .filter-input {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        
-        .filter-input input {
-          width: 60px;
-          padding: 4px 8px;
-          border: 1px solid #444;
-          background: #1a1a2e;
-          color: #fff;
-          border-radius: 4px;
-        }
-        
-        .widget-content {
-          min-height: 300px;
-          max-height: 500px;
-          overflow-y: auto;
-        }
-        
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        
-        .empty-state {
-          text-align: center;
-          padding: 40px;
-          color: #666;
-          font-style: italic;
-        }
-        
-        .accounts-summary {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 15px;
-          margin-bottom: 20px;
-        }
-        
-        .summary-card {
-          background: #252542;
-          padding: 15px;
-          border-radius: 8px;
-          text-align: center;
-        }
-        
-        .summary-value {
-          display: block;
-          font-size: 1.8em;
-          font-weight: bold;
-          color: #4ade80;
-        }
-        
-        .summary-label {
-          display: block;
-          font-size: 0.85em;
-          color: #888;
-          margin-top: 5px;
-        }
-        
-        .account-card {
-          background: #252542;
-          border-radius: 8px;
-          padding: 15px;
-          margin-bottom: 10px;
-          cursor: pointer;
-          transition: all 0.2s;
-          border-left: 4px solid transparent;
-        }
-        
-        .account-card:hover { background: #303055; }
-        .account-card.selected { border-left-color: #4f46e5; }
-        .account-card.limited { border-left-color: #ef4444; }
-        
-        .account-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 10px;
-        }
-        
-        .account-name {
-          font-weight: 600;
-          font-size: 1.1em;
-        }
-        
-        .account-badges {
-          display: flex;
-          gap: 5px;
-        }
-        
-        .badge {
-          padding: 3px 8px;
-          border-radius: 4px;
-          font-size: 0.75em;
-          font-weight: 600;
-        }
-        
-        .badge-limited { background: #ef4444; color: #fff; }
-        .badge-active { background: #4ade80; color: #000; }
-        .badge-inactive { background: #666; color: #fff; }
-        
-        .account-details {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 10px;
-          font-size: 0.9em;
-          color: #aaa;
-        }
-        
-        .detail-row {
-          display: flex;
-          justify-content: space-between;
-        }
-        
-        .detail-label { color: #666; }
-        .detail-value { color: #fff; font-weight: 500; }
-        
-        .gubbing-risk {
-          margin-top: 10px;
-          padding-top: 10px;
-          border-top: 1px solid #333;
-        }
-        
-        .risk-bar {
-          height: 6px;
-          background: #333;
-          border-radius: 3px;
-          overflow: hidden;
-          margin-top: 5px;
-        }
-        
-        .risk-fill {
-          height: 100%;
-          border-radius: 3px;
-          transition: width 0.3s;
-        }
-        
-        .risk-fill.low { background: #4ade80; }
-        .risk-fill.medium { background: #fbbf24; }
-        .risk-fill.high { background: #ef4444; }
-        
-        .optimization-card {
-          background: #252542;
-          border-radius: 8px;
-          padding: 15px;
-          margin-bottom: 10px;
-        }
-        
-        .optimization-card.optimal { border-left: 4px solid #4ade80; }
-        .optimization-card.constrained { border-left: 4px solid #fbbf24; }
-        .optimization-card.high-risk { border-left: 4px solid #ef4444; }
-        
-        .opt-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 10px;
-        }
-        
-        .opt-id {
-          font-family: monospace;
-          font-size: 0.85em;
-          color: #888;
-        }
-        
-        .opt-profit {
-          font-size: 1.2em;
-          font-weight: bold;
-        }
-        
-        .opt-profit.positive { color: #4ade80; }
-        .opt-profit.negative { color: #ef4444; }
-        
-        .opt-status {
-          display: flex;
-          gap: 10px;
-          margin-bottom: 10px;
-        }
-        
-        .status-item {
-          padding: 4px 10px;
-          border-radius: 4px;
-          font-size: 0.8em;
-          background: #1a1a2e;
-        }
-        
-        .opt-legs {
-          margin-top: 10px;
-        }
-        
-        .leg-row {
-          display: grid;
-          grid-template-columns: 1fr 80px 80px 60px;
-          gap: 10px;
-          padding: 8px;
-          background: #1a1a2e;
-          border-radius: 4px;
-          margin-bottom: 5px;
-          font-size: 0.85em;
-          align-items: center;
-        }
-        
-        .leg-bookmaker { font-weight: 500; }
-        .leg-odds { color: #fbbf24; text-align: center; }
-        .leg-stake { text-align: right; }
-        .leg-constrained { color: #ef4444; font-size: 0.75em; }
-        
-        .limit-row {
-          display: grid;
-          grid-template-columns: 1fr 100px 100px 80px;
-          gap: 10px;
-          padding: 10px;
-          background: #252542;
-          border-radius: 4px;
-          margin-bottom: 5px;
-          align-items: center;
-        }
-        
-        .limit-market { font-weight: 500; }
-        .limit-min { color: #888; text-align: right; }
-        .limit-max { color: #4ade80; text-align: right; font-weight: 600; }
-        .limit-confidence { text-align: center; }
-        
-        .confidence-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          display: inline-block;
-        }
-        
-        .confidence-high { background: #4ade80; }
-        .confidence-medium { background: #fbbf24; }
-        .confidence-low { background: #ef4444; }
-        
-        .widget-footer {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: 15px;
-          padding-top: 15px;
-          border-top: 1px solid #333;
-          font-size: 0.85em;
-          color: #666;
-        }
-        
-        .btn-refresh {
-          padding: 6px 12px;
-          border: none;
-          background: #4f46e5;
-          color: #fff;
-          border-radius: 4px;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        
-        .btn-refresh:hover { background: #4338ca; }
+        .blo-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid #333; font-size: 11px; color: #666; }
+        .blo-footer button { width: 28px; height: 28px; border: none; background: #4f46e5; color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        .blo-footer button:hover { background: #4338ca; }
       </style>
     `;
   }
 
-  /**
-   * Cache DOM elements
-   */
-  function cacheElements() {
-    elements.connectionStatus = document.getElementById('limit-connection-status');
-    elements.accountsList = document.getElementById('accounts-list');
-    elements.accountsSummary = document.getElementById('accounts-summary');
-    elements.totalAccounts = document.getElementById('total-accounts');
-    elements.limitedAccounts = document.getElementById('limited-accounts');
-    elements.totalBalance = document.getElementById('total-balance');
-    elements.optimizationsList = document.getElementById('optimizations-list');
-    elements.limitsList = document.getElementById('limits-list');
-    elements.lastUpdate = document.getElementById('last-update');
-    elements.showLimitedOnly = document.getElementById('show-limited-only');
-    elements.minProfitFilter = document.getElementById('min-profit-filter');
-    elements.refreshBtn = document.getElementById('refresh-btn');
-    elements.tabBtns = document.querySelectorAll('.tab-btn');
-    elements.tabContents = document.querySelectorAll('.tab-content');
+  // Cache DOM elements
+  function cache() {
+    $.status = document.getElementById('blo-status');
+    $.nav = document.querySelectorAll('.blo-nav button');
+    $.tabs = document.querySelectorAll('.blo-content section');
+    $.filterLimited = document.getElementById('blo-filter-limited');
+    $.minProfit = document.getElementById('blo-min-profit');
+    $.sumTotal = document.getElementById('sum-total');
+    $.sumLimited = document.getElementById('sum-limited');
+    $.sumBalance = document.getElementById('sum-balance');
+    $.listAccounts = document.getElementById('list-accounts');
+    $.listTrades = document.getElementById('list-trades');
+    $.listLimits = document.getElementById('list-limits');
+    $.updated = document.getElementById('blo-updated');
+    $.refresh = document.getElementById('blo-refresh');
   }
 
-  /**
-   * Bind event handlers
-   */
-  function bindEvents() {
-    // Tab switching
-    elements.tabBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const tab = btn.dataset.tab;
-        switchTab(tab);
-      });
-    });
-
-    // Filters
-    elements.showLimitedOnly?.addEventListener('change', (e) => {
-      filters.showLimitedOnly = e.target.checked;
-      renderAccounts();
-    });
-
-    elements.minProfitFilter?.addEventListener('input', (e) => {
-      filters.minProfitPercent = parseFloat(e.target.value) || 0;
-    });
-
-    // Refresh
-    elements.refreshBtn?.addEventListener('click', () => {
-      requestRefresh();
-    });
+  // Bind events
+  function bind() {
+    $.nav.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+    $.filterLimited?.addEventListener('change', e => { state.filterLimited = e.target.checked; renderAccounts(); });
+    $.minProfit?.addEventListener('input', e => { state.minProfit = parseFloat(e.target.value) || 0; renderTrades(); });
+    $.refresh?.addEventListener('click', refresh);
   }
 
-  /**
-   * Switch active tab
-   */
-  function switchTab(tabName) {
-    elements.tabBtns.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabName);
-    });
-    elements.tabContents.forEach(content => {
-      content.classList.toggle('active', content.id === `${tabName}-tab`);
-    });
+  // Switch tab
+  function switchTab(tab) {
+    $.nav.forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    $.tabs.forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
   }
 
-  /**
-   * Connect to WebSocket
-   */
+  // WebSocket connection
   function connect() {
-    if (ws?.readyState === WebSocket.CONNECTING) return;
-
-    updateConnectionStatus('connecting');
-
+    if (state.ws?.readyState === WebSocket.CONNECTING) return;
+    setStatus('connecting');
+    
     try {
-      ws = new WebSocket(WS_URL);
-
-      ws.onopen = () => {
-        isConnected = true;
-        reconnectAttempts = 0;
-        updateConnectionStatus('connected');
-        
-        // Subscribe to updates
-        send({
-          type: 'subscribe',
-          payload: filters
-        });
-        
-        // Request initial data
-        requestRefresh();
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          handleMessage(message);
-        } catch (error) {
-          console.error('Failed to parse message:', error);
-        }
-      };
-
-      ws.onclose = () => {
-        isConnected = false;
-        updateConnectionStatus('disconnected');
-        scheduleReconnect();
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        updateConnectionStatus('disconnected');
-      };
-    } catch (error) {
-      console.error('Failed to connect:', error);
-      updateConnectionStatus('disconnected');
+      state.ws = new WebSocket(CFG.wsUrl);
+      state.ws.onopen = () => { state.connected = true; state.reconnects = 0; setStatus('connected'); refresh(); };
+      state.ws.onmessage = e => handleMessage(JSON.parse(e.data));
+      state.ws.onclose = () => { state.connected = false; setStatus('disconnected'); scheduleReconnect(); };
+      state.ws.onerror = () => setStatus('disconnected');
+    } catch (err) {
+      setStatus('disconnected');
       scheduleReconnect();
     }
   }
 
-  /**
-   * Schedule reconnection
-   */
   function scheduleReconnect() {
-    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.error('Max reconnection attempts reached');
-      return;
-    }
-
-    reconnectAttempts++;
-    clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(connect, RECONNECT_DELAY);
+    if (state.reconnects >= CFG.maxReconnects) return;
+    state.reconnects++;
+    setTimeout(connect, CFG.reconnectDelay);
   }
 
-  /**
-   * Send message to server
-   */
-  function send(message) {
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
-    }
+  function send(msg) {
+    if (state.ws?.readyState === WebSocket.OPEN) state.ws.send(JSON.stringify(msg));
   }
 
-  /**
-   * Request data refresh
-   */
-  function requestRefresh() {
+  function refresh() {
     send({ type: 'getAccounts' });
-    send({ type: 'getStats' });
     send({ type: 'getHistory', payload: { limit: 20 } });
-    if (selectedAccount) {
-      send({ type: 'getLimits', payload: { bookmakerId: selectedAccount } });
+    if (state.selected) send({ type: 'getLimits', payload: { bookmakerId: state.selected } });
+  }
+
+  // Handle messages
+  function handleMessage(msg) {
+    switch (msg.type) {
+      case 'accounts': state.accounts = msg.payload?.accounts || []; renderAccounts(); updateSummary(); break;
+      case 'stakesOptimized': state.optimizations.unshift(msg.payload?.result); if (state.optimizations.length > 50) state.optimizations.pop(); renderTrades(); break;
+      case 'history': state.optimizations = msg.payload?.optimizations || []; renderTrades(); break;
+      case 'limits': renderLimits(msg.payload?.limit || msg.payload?.limits); break;
+      case 'limitUpdated': case 'dynamicAdjustmentUpdated': send({ type: 'getAccounts' }); break;
     }
+    $.updated.textContent = new Date().toLocaleTimeString();
   }
 
-  /**
-   * Handle incoming message
-   */
-  function handleMessage(message) {
-    switch (message.type) {
-      case 'connected':
-        clientId = message.payload?.clientId;
-        break;
-        
-      case 'accounts':
-        accounts = message.payload?.accounts || [];
-        renderAccounts();
-        updateSummary();
-        break;
-        
-      case 'stakesOptimized':
-        const opt = message.payload?.result;
-        if (opt) {
-          optimizations.unshift(opt);
-          if (optimizations.length > 50) optimizations.pop();
-          renderOptimizations();
-        }
-        break;
-        
-      case 'history':
-        optimizations = message.payload?.optimizations || [];
-        renderOptimizations();
-        break;
-        
-      case 'limits':
-        renderLimits(message.payload?.limit || message.payload?.limits);
-        break;
-        
-      case 'limitedAccounts':
-        // Handle limited accounts update
-        break;
-        
-      case 'stats':
-        // Handle stats update
-        break;
-        
-      case 'limitUpdated':
-      case 'dynamicAdjustmentUpdated':
-        // Refresh accounts on limit changes
-        send({ type: 'getAccounts' });
-        break;
-        
-      case 'ping':
-        send({ type: 'pong' });
-        break;
-    }
-    
-    updateLastUpdateTime();
+  // Update status indicator
+  function setStatus(status) {
+    $.status.className = status;
+    $.status.textContent = status === 'connected' ? '●' : status === 'connecting' ? '◐' : '○';
   }
 
-  /**
-   * Update connection status UI
-   */
-  function updateConnectionStatus(status) {
-    if (!elements.connectionStatus) return;
-    
-    const dot = elements.connectionStatus.querySelector('.status-dot');
-    const text = elements.connectionStatus.querySelector('.status-text');
-    
-    dot.className = 'status-dot ' + status;
-    text.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-  }
-
-  /**
-   * Update last update time
-   */
-  function updateLastUpdateTime() {
-    if (elements.lastUpdate) {
-      elements.lastUpdate.textContent = 'Last update: ' + new Date().toLocaleTimeString();
-    }
-  }
-
-  /**
-   * Update summary cards
-   */
+  // Update summary
   function updateSummary() {
-    if (elements.totalAccounts) {
-      elements.totalAccounts.textContent = accounts.length;
-    }
-    
-    if (elements.limitedAccounts) {
-      const limited = accounts.filter(a => a.isLimited).length;
-      elements.limitedAccounts.textContent = limited;
-    }
-    
-    if (elements.totalBalance) {
-      const total = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
-      elements.totalBalance.textContent = '€' + total.toLocaleString();
-    }
+    $.sumTotal.textContent = state.accounts.length;
+    $.sumLimited.textContent = state.accounts.filter(a => a.isLimited).length;
+    const total = state.accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+    $.sumBalance.textContent = '€' + total.toLocaleString();
   }
 
-  /**
-   * Render accounts list
-   */
+  // Render accounts
   function renderAccounts() {
-    if (!elements.accountsList) return;
+    const filtered = state.filterLimited ? state.accounts.filter(a => a.isLimited) : state.accounts;
     
-    let filteredAccounts = accounts;
-    if (filters.showLimitedOnly) {
-      filteredAccounts = accounts.filter(a => a.isLimited);
-    }
-    
-    if (filteredAccounts.length === 0) {
-      elements.accountsList.innerHTML = '<div class="empty-state">No accounts found</div>';
+    if (!filtered.length) {
+      $.listAccounts.innerHTML = '<p class="blo-empty">No accounts</p>';
       return;
     }
     
-    elements.accountsList.innerHTML = filteredAccounts.map(account => `
-      <div class="account-card ${account.isLimited ? 'limited' : ''} ${selectedAccount === account.bookmakerId ? 'selected' : ''}" 
-           data-id="${account.bookmakerId}">
-        <div class="account-header">
-          <span class="account-name">${account.bookmakerName}</span>
-          <div class="account-badges">
-            ${account.isLimited ? '<span class="badge badge-limited">LIMITED</span>' : ''}
-            <span class="badge ${account.isActive ? 'badge-active' : 'badge-inactive'}">
-              ${account.isActive ? 'ACTIVE' : 'INACTIVE'}
-            </span>
+    $.listAccounts.innerHTML = filtered.map(a => `
+      <div class="blo-card ${a.isLimited ? 'limited' : ''} ${state.selected === a.bookmakerId ? 'selected' : ''}" data-id="${a.bookmakerId}">
+        <div class="blo-card-header">
+          <span class="blo-card-title">${a.bookmakerName}</span>
+          <div class="blo-card-badges">
+            ${a.isLimited ? '<span class="blo-badge limited">Limited</span>' : ''}
+            <span class="blo-badge ${a.isActive ? 'active' : ''}">${a.isActive ? 'Active' : 'Off'}</span>
           </div>
         </div>
-        <div class="account-details">
-          <div class="detail-row">
-            <span class="detail-label">Balance:</span>
-            <span class="detail-value">${account.balance?.toLocaleString()} ${account.currency}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Adjustment:</span>
-            <span class="detail-value">${((account.adjustmentFactor || 1) * 100).toFixed(0)}%</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Limits:</span>
-            <span class="detail-value">${account.limitCount || 0}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Wins:</span>
-            <span class="detail-value">${account.consecutiveWins || 0}</span>
-          </div>
+        <div class="blo-card-meta">
+          <span>Balance <strong>${a.balance?.toLocaleString()} ${a.currency}</strong></span>
+          <span>Adj <strong>${((a.adjustmentFactor || 1) * 100).toFixed(0)}%</strong></span>
+          <span>Limits <strong>${a.limitCount || 0}</strong></span>
+          <span>Wins <strong>${a.consecutiveWins || 0}</strong></span>
         </div>
-        <div class="gubbing-risk">
-          <div class="detail-row">
-            <span class="detail-label">Gubbing Risk:</span>
-            <span class="detail-value">${((account.gubbingRisk || 0) * 100).toFixed(0)}%</span>
-          </div>
-          <div class="risk-bar">
-            <div class="risk-fill ${getRiskLevel(account.gubbingRisk)}" 
-                 style="width: ${(account.gubbingRisk || 0) * 100}%"></div>
-          </div>
+        <div class="blo-risk">
+          <div class="blo-card-meta"><span>Gubbing risk <strong>${((a.gubbingRisk || 0) * 100).toFixed(0)}%</strong></span></div>
+          <div class="blo-risk-bar"><div class="blo-risk-fill ${riskLevel(a.gubbingRisk)}" style="width:${(a.gubbingRisk||0)*100}%"></div></div>
         </div>
       </div>
     `).join('');
     
-    // Add click handlers
-    elements.accountsList.querySelectorAll('.account-card').forEach(card => {
+    $.listAccounts.querySelectorAll('.blo-card').forEach(card => {
       card.addEventListener('click', () => {
-        selectedAccount = card.dataset.id;
+        state.selected = card.dataset.id;
         renderAccounts();
-        send({ type: 'getLimits', payload: { bookmakerId: selectedAccount } });
+        send({ type: 'getLimits', payload: { bookmakerId: state.selected } });
         switchTab('limits');
       });
     });
   }
 
-  /**
-   * Get risk level class
-   */
-  function getRiskLevel(risk) {
-    if (!risk || risk < 0.3) return 'low';
-    if (risk < 0.7) return 'medium';
+  function riskLevel(r) {
+    if (!r || r < 0.3) return 'low';
+    if (r < 0.7) return 'med';
     return 'high';
   }
 
-  /**
-   * Render optimizations list
-   */
-  function renderOptimizations() {
-    if (!elements.optimizationsList) return;
+  // Render trades
+  function renderTrades() {
+    const filtered = state.optimizations.filter(o => o.profitPercent >= state.minProfit);
     
-    const filteredOpts = optimizations.filter(opt => 
-      opt.profitPercent >= filters.minProfitPercent
-    );
-    
-    if (filteredOpts.length === 0) {
-      elements.optimizationsList.innerHTML = '<div class="empty-state">No optimizations yet</div>';
+    if (!filtered.length) {
+      $.listTrades.innerHTML = '<p class="blo-empty">No trades yet</p>';
       return;
     }
     
-    elements.optimizationsList.innerHTML = filteredOpts.map(opt => {
-      const isOptimal = opt.isOptimal;
-      const isHighRisk = opt.partialFillRisk?.riskLevel === 'high';
-      const cardClass = isOptimal ? 'optimal' : (isHighRisk ? 'high-risk' : 'constrained');
-      
+    $.listTrades.innerHTML = filtered.map(o => {
+      const cls = o.isOptimal ? 'optimal' : o.partialFillRisk?.riskLevel === 'high' ? 'warning' : '';
       return `
-        <div class="optimization-card ${cardClass}">
-          <div class="opt-header">
-            <span class="opt-id">${opt.opportunityId?.substring(0, 20)}...</span>
-            <span class="opt-profit ${opt.expectedProfit >= 0 ? 'positive' : 'negative'}">
-              ${opt.profitPercent?.toFixed(2)}%
-            </span>
+        <div class="blo-card ${cls}">
+          <div class="blo-card-header">
+            <span class="blo-card-title">${o.opportunityId?.slice(0, 16)}...</span>
+            <span style="color:${o.expectedProfit>=0?'#4ade80':'#ef4444'};font-weight:600">${o.profitPercent?.toFixed(2)}%</span>
           </div>
-          <div class="opt-status">
-            <span class="status-item">Total: €${opt.totalStake?.toFixed(2)}</span>
-            <span class="status-item">Profit: €${opt.expectedProfit?.toFixed(2)}</span>
-            <span class="status-item">Risk: ${opt.partialFillRisk?.riskLevel || 'unknown'}</span>
-            ${opt.constraintsApplied?.length > 0 ? `<span class="status-item">Constraints: ${opt.constraintsApplied.length}</span>` : ''}
+          <div class="blo-card-meta">
+            <span>Stake <strong>€${o.totalStake?.toFixed(2)}</strong></span>
+            <span>Profit <strong>€${o.expectedProfit?.toFixed(2)}</strong></span>
+            <span>Risk <strong>${o.partialFillRisk?.riskLevel || '-'}</strong></span>
+            <span>Constraints <strong>${o.constraintsApplied?.length || 0}</strong></span>
           </div>
-          ${opt.legs ? `
-            <div class="opt-legs">
-              ${opt.legs.map(leg => `
-                <div class="leg-row">
-                  <span class="leg-bookmaker">${leg.bookmakerName}</span>
-                  <span class="leg-odds">${leg.odds}</span>
-                  <span class="leg-stake">€${leg.actualStake?.toFixed(2)}</span>
-                  ${leg.isConstrained ? '<span class="leg-constrained">⚠️ Limited</span>' : ''}
-                </div>
-              `).join('')}
+          ${o.legs ? `<div class="blo-trade-legs">${o.legs.map(l => `
+            <div class="blo-leg">
+              <span>${l.bookmakerName}</span>
+              <span>${l.odds}</span>
+              <span>€${l.actualStake?.toFixed(2)}${l.isConstrained ? ' ⚠' : ''}</span>
             </div>
-          ` : ''}
+          `).join('')}</div>` : ''}
         </div>
       `;
     }).join('');
   }
 
-  /**
-   * Render limits
-   */
+  // Render limits
   function renderLimits(limits) {
-    if (!elements.limitsList) return;
-    
     if (!limits) {
-      elements.limitsList.innerHTML = '<div class="empty-state">Select an account to view limits</div>';
+      $.listLimits.innerHTML = '<p class="blo-empty">Select an account to view limits</p>';
       return;
     }
     
-    if (Array.isArray(limits)) {
-      if (limits.length === 0) {
-        elements.limitsList.innerHTML = '<div class="empty-state">No limits configured</div>';
-        return;
-      }
-      
-      elements.limitsList.innerHTML = limits.map(limit => `
-        <div class="limit-row">
-          <span class="limit-market">${limit.market}</span>
-          <span class="limit-min">Min: €${limit.minStake}</span>
-          <span class="limit-max">Max: €${limit.maxStake?.toLocaleString()}</span>
-          <span class="limit-confidence">
-            <span class="confidence-dot ${getConfidenceClass(limit.confidence)}"></span>
-          </span>
-        </div>
-      `).join('');
-    } else {
-      // Single limit object
-      elements.limitsList.innerHTML = `
-        <div class="limit-row">
-          <span class="limit-market">${limits.market || 'default'}</span>
-          <span class="limit-min">Min: €${limits.minStake}</span>
-          <span class="limit-max">Max: €${limits.maxStake?.toLocaleString()}</span>
-          <span class="limit-confidence">
-            <span class="confidence-dot ${getConfidenceClass(limits.confidence)}"></span>
-          </span>
-        </div>
-      `;
+    const list = Array.isArray(limits) ? limits : [limits];
+    
+    if (!list.length) {
+      $.listLimits.innerHTML = '<p class="blo-empty">No limits configured</p>';
+      return;
     }
+    
+    $.listLimits.innerHTML = list.map(l => `
+      <div class="blo-card">
+        <div class="blo-card-header">
+          <span class="blo-card-title">${l.market || 'Default'}</span>
+          <span class="confidence-dot ${confidenceClass(l.confidence)}"></span>
+        </div>
+        <div class="blo-card-meta">
+          <span>Min <strong>€${l.minStake}</strong></span>
+          <span>Max <strong>€${l.maxStake?.toLocaleString()}</strong></span>
+        </div>
+      </div>
+    `).join('');
   }
 
-  /**
-   * Get confidence class
-   */
-  function getConfidenceClass(confidence) {
-    if (!confidence || confidence < 0.5) return 'confidence-low';
-    if (confidence < 0.8) return 'confidence-medium';
-    return 'confidence-high';
+  function confidenceClass(c) {
+    if (!c || c < 0.5) return 'high';
+    if (c < 0.8) return 'med';
+    return 'low';
   }
 
-  /**
-   * Start refresh interval
-   */
-  function startRefreshInterval() {
-    setInterval(() => {
-      if (isConnected) {
-        requestRefresh();
-      }
-    }, 30000); // Every 30 seconds
-  }
+  // Initialize
+  document.readyState === 'loading' 
+    ? document.addEventListener('DOMContentLoaded', init)
+    : init();
 
-  // Initialize when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-
-  // Expose API
+  // Public API
   window.BookmakerLimitWidget = {
     connect,
-    disconnect: () => ws?.close(),
-    requestRefresh,
-    getState: () => ({
-      isConnected,
-      accounts,
-      optimizations,
-      selectedAccount,
-      filters
-    })
+    disconnect: () => state.ws?.close(),
+    refresh,
+    getState: () => ({ ...state })
   };
 })();
