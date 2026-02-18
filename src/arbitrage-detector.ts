@@ -8,7 +8,7 @@
  * - Middle opportunities (win both sides)
  */
 
-import { AggregatedOdds } from '../odds-aggregation-engine.js';
+import { AggregatedOdds } from './odds-aggregation-engine.js';
 
 export interface ArbitrageOpportunity {
   id: string;

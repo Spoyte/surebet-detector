@@ -191,7 +191,7 @@ export class CacheManager extends EventEmitter {
       
       for (let i = 0; i < keys.length; i++) {
         if (values[i]) {
-          const parsed = JSON.parse(values[i]);
+          const parsed = JSON.parse(values[i]!);
           result.set(keys[i], parsed);
           
           // Update local cache

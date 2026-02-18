@@ -227,7 +227,7 @@ export class OddsAggregationEngine extends EventEmitter {
   /**
    * Handle incoming odds update from any source
    */
-  private async handleOddsUpdate(bookmakerId: string, data: any): void {
+  private async handleOddsUpdate(bookmakerId: string, data: any): Promise<void> {
     const normalized = this.normalizeOddsData(bookmakerId, data);
     
     for (const odds of normalized) {
@@ -274,7 +274,8 @@ export class OddsAggregationEngine extends EventEmitter {
       const markets = event.markets || event.odds || event.markets || {};
       
       for (const [marketKey, marketData] of Object.entries(markets)) {
-        const selections = Array.isArray(marketData) ? marketData : marketData.selections || marketData.outcomes || [];
+        const md = marketData as any;
+        const selections = Array.isArray(md) ? md : md.selections || md.outcomes || [];
         
         for (const selection of selections) {
           normalized.push({

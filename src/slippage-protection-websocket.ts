@@ -8,7 +8,7 @@
 
 import { WebSocketServer, WebSocket } from 'ws';
 import { SlippageProtector, SlippageConfig, SlippageEvent } from './slippage-protector.js';
-import { logger } from './logger.js';
+import logger from './logger.js';
 
 interface ClientSubscription {
   ws: WebSocket;

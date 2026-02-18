@@ -7,7 +7,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { logger } from './logger.js';
+import logger from './logger.js';
 
 export interface SlippageConfig {
   /** Maximum acceptable slippage percentage (e.g., 0.5 = 0.5%) */

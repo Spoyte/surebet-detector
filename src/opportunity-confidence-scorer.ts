@@ -16,20 +16,20 @@ import logger from './utils/logger.js';
 // CONSTANTS - Named, not magic numbers
 // ============================================================================
 
-const WEIGHTS = {
+const WEIGHTS: Record<string, number> = {
   profit: 0.25,
   timing: 0.20,
   bookmaker: 0.20,
   market: 0.20,
   historical: 0.15
-} as const;
+};
 
-const THRESHOLDS = {
+const THRESHOLDS: Record<string, number> = {
   excellent: 85,
   good: 70,
   fair: 55,
   poor: 40
-} as const;
+};
 
 const PROFIT_TIERS = [
   { min: 5.0, score: 1.0 },
@@ -504,10 +504,12 @@ export class OpportunityConfidenceScorer extends EventEmitter {
   private bookmakerProfiles: ProfileRepository<BookmakerProfile>;
   private sportProfiles: ProfileRepository<SportProfile>;
   private historicalData: HistoricalDataStore;
+  private config: ConfidenceScorerConfig;
 
-  constructor() {
+  constructor(config?: ConfidenceScorerConfig) {
     super();
     
+    this.config = config || {};
     this.bookmakerProfiles = new ProfileRepository(DEFAULT_BOOKMAKER_PROFILES);
     this.sportProfiles = new ProfileRepository(DEFAULT_SPORT_PROFILES);
     this.historicalData = new HistoricalDataStore();
@@ -644,9 +646,14 @@ export class OpportunityConfidenceScorer extends EventEmitter {
 
 let defaultScorer: OpportunityConfidenceScorer | null = null;
 
-export function getOpportunityConfidenceScorer(): OpportunityConfidenceScorer {
+export interface ConfidenceScorerConfig {
+  weights?: Record<string, number>;
+  thresholds?: Record<string, number>;
+}
+
+export function getOpportunityConfidenceScorer(config?: ConfidenceScorerConfig): OpportunityConfidenceScorer {
   if (!defaultScorer) {
-    defaultScorer = new OpportunityConfidenceScorer();
+    defaultScorer = new OpportunityConfidenceScorer(config);
   }
   return defaultScorer;
 }
