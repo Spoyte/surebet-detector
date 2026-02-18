@@ -163,18 +163,23 @@ describe('OpportunityConfidenceScorer', () => {
       expect(scorer).toBeDefined();
     });
 
-    it('should emit modelUpdated event', (done) => {
-      scorer.on('modelUpdated', (event) => {
-        expect(event.outcome).toBeDefined();
-        expect(event.historicalCount).toBeGreaterThan(0);
-        done();
+    it('should emit modelUpdated event', async () => {
+      const eventPromise = new Promise((resolve) => {
+        scorer.once('modelUpdated', (event) => {
+          resolve(event);
+        });
       });
       
-      scorer.updateModel(baseFeatures, {
+      await scorer.updateModel(baseFeatures, {
         success: true,
         fillTimeMinutes: 5,
         actualProfit: 2.3
       });
+      
+      const event = await eventPromise;
+      expect(event).toBeDefined();
+      expect(event.outcome).toBeDefined();
+      expect(event.historicalCount).toBeGreaterThan(0);
     });
   });
 
