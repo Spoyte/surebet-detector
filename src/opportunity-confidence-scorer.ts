@@ -1,588 +1,116 @@
 /**
- * Opportunity Confidence Scorer
+ * Opportunity Confidence Scorer - Refactored
  * 
- * Machine learning-based scoring system for arbitrage opportunities.
- * Scores opportunities by likelihood of successful execution based on
- * historical fill rates, bookmaker behavior, and market conditions.
+ * Clean separation of concerns:
+ * - Domain types (pure data)
+ * - Factor calculators (single responsibility)
+ * - Scoring engine (orchestration only)
+ * 
+ * Reference: Go team's interface design + DHH's readable code philosophy
  */
 
 import { EventEmitter } from 'events';
-import { logger } from './logger.js';
+import logger from './utils/logger.js';
+
+// ============================================================================
+// CONSTANTS - Named, not magic numbers
+// ============================================================================
+
+const WEIGHTS = {
+  profit: 0.25,
+  timing: 0.20,
+  bookmaker: 0.20,
+  market: 0.20,
+  historical: 0.15
+} as const;
+
+const THRESHOLDS = {
+  excellent: 85,
+  good: 70,
+  fair: 55,
+  poor: 40
+} as const;
+
+const PROFIT_TIERS = [
+  { min: 5.0, score: 1.0 },
+  { min: 3.0, score: 0.9 },
+  { min: 2.0, score: 0.8 },
+  { min: 1.0, score: 0.7 },
+  { min: 0.5, score: 0.6 }
+] as const;
+
+const TIMING = {
+  sweetSpotHours: { min: 1, max: 24 },
+  extendedWindowHours: 72,
+  urgentThresholdMinutes: 60,
+  peakHours: [18, 19, 20, 21],
+  weekendDays: [0, 6]
+} as const;
+
+const EMA_ALPHA = 0.1;
+const BASELINE_LIMIT = 100;
+
+// ============================================================================
+// DOMAIN TYPES - Pure data structures
+// ============================================================================
 
 export interface OpportunityFeatures {
-  // Profit metrics
   profitPercent: number;
   expectedValue: number;
-  
-  // Time factors
   timeToEventMinutes: number;
-  timeOfDay: number; // 0-23
-  dayOfWeek: number; // 0-6
-  
-  // Bookmaker factors
+  timeOfDay: number;
+  dayOfWeek: number;
   bookmakers: string[];
-  bookmakerReliabilityScores: number[]; // 0-1
-  bookmakerAvgFillRates: number[]; // 0-1
-  bookmakerLimitHistory: number[]; // average limits
-  
-  // Market factors
+  bookmakerReliabilityScores: number[];
+  bookmakerAvgFillRates: number[];
+  bookmakerLimitHistory: number[];
   sport: string;
   league: string;
   market: string;
-  liquidityScore: number; // 0-1
-  oddsMovementVolatility: number; // standard deviation
-  
-  // Historical factors
-  historicalSuccessRate: number; // for similar opportunities
+  liquidityScore: number;
+  oddsMovementVolatility: number;
+  historicalSuccessRate: number;
   similarOpportunitiesCount: number;
   avgTimeToFillMinutes: number;
-  
-  // Competition factors
-  competitorCount: number; // number of arbers likely watching
-  marketEfficiency: number; // how quickly odds correct
+  competitorCount: number;
+  marketEfficiency: number;
 }
 
+export interface FactorScores {
+  profit: number;
+  timing: number;
+  bookmaker: number;
+  market: number;
+  historical: number;
+}
+
+export type Grade = 'A' | 'B' | 'C' | 'D' | 'F';
+export type Action = 'execute' | 'monitor' | 'skip';
+
 export interface ConfidenceScore {
-  score: number; // 0-100
-  confidence: number; // 0-1, model confidence
-  probability: number; // 0-1, probability of successful execution
-  grade: 'A' | 'B' | 'C' | 'D' | 'F';
-  factors: {
-    profitFactor: number;
-    timingFactor: number;
-    bookmakerFactor: number;
-    marketFactor: number;
-    historicalFactor: number;
-  };
+  score: number;
+  confidence: number;
+  probability: number;
+  grade: Grade;
+  factors: FactorScores;
   explanation: string[];
-  recommendedAction: 'execute' | 'monitor' | 'skip';
+  recommendedAction: Action;
   estimatedFillTimeMinutes: number;
 }
 
 export interface ScoringModel {
-  weights: {
-    profit: number;
-    timing: number;
-    bookmaker: number;
-    market: number;
-    historical: number;
-  };
-  thresholds: {
-    excellent: number;
-    good: number;
-    fair: number;
-    poor: number;
-  };
+  weights: typeof WEIGHTS;
+  thresholds: typeof THRESHOLDS;
 }
 
-export class OpportunityConfidenceScorer extends EventEmitter {
-  private model: ScoringModel;
-  private historicalData: Map<string, any> = new Map();
-  private bookmakerProfiles: Map<string, BookmakerProfile> = new Map();
-  private sportProfiles: Map<string, SportProfile> = new Map();
-  
-  // Feature importance from training (simplified ML model)
-  private featureImportance = {
-    profitPercent: 0.25,
-    timeToEvent: 0.20,
-    bookmakerReliability: 0.20,
-    liquidity: 0.15,
-    historicalSuccess: 0.12,
-    oddsVolatility: 0.08
-  };
-
-  constructor(model?: Partial<ScoringModel>) {
-    super();
-    
-    this.model = {
-      weights: {
-        profit: 0.25,
-        timing: 0.20,
-        bookmaker: 0.20,
-        market: 0.20,
-        historical: 0.15
-      },
-      thresholds: {
-        excellent: 85,
-        good: 70,
-        fair: 55,
-        poor: 40
-      },
-      ...model
-    };
-    
-    this.loadBookmakerProfiles();
-    this.loadSportProfiles();
-  }
-
-  /**
-   * Score an opportunity using ML-based confidence scoring
-   */
-  async scoreOpportunity(features: OpportunityFeatures): Promise<ConfidenceScore> {
-    // Calculate individual factor scores
-    const profitFactor = this.calculateProfitFactor(features);
-    const timingFactor = this.calculateTimingFactor(features);
-    const bookmakerFactor = this.calculateBookmakerFactor(features);
-    const marketFactor = this.calculateMarketFactor(features);
-    const historicalFactor = this.calculateHistoricalFactor(features);
-    
-    // Weighted composite score
-    const compositeScore = 
-      profitFactor * this.model.weights.profit +
-      timingFactor * this.model.weights.timing +
-      bookmakerFactor * this.model.weights.bookmaker +
-      marketFactor * this.model.weights.market +
-      historicalFactor * this.model.weights.historical;
-    
-    // Convert to 0-100 scale
-    const score = Math.round(compositeScore * 100);
-    
-    // Calculate probability using logistic function
-    const probability = this.sigmoid(compositeScore * 2 - 1);
-    
-    // Determine grade
-    const grade = this.scoreToGrade(score);
-    
-    // Generate explanation
-    const explanation = this.generateExplanation(features, {
-      profitFactor,
-      timingFactor,
-      bookmakerFactor,
-      marketFactor,
-      historicalFactor
-    });
-    
-    // Determine recommended action
-    const recommendedAction = this.determineAction(score, features);
-    
-    // Estimate fill time
-    const estimatedFillTimeMinutes = this.estimateFillTime(features, score);
-    
-    const result: ConfidenceScore = {
-      score,
-      confidence: this.calculateModelConfidence(features),
-      probability,
-      grade,
-      factors: {
-        profitFactor,
-        timingFactor,
-        bookmakerFactor,
-        marketFactor,
-        historicalFactor
-      },
-      explanation,
-      recommendedAction,
-      estimatedFillTimeMinutes
-    };
-    
-    // Emit scoring event
-    this.emit('opportunityScored', {
-      features,
-      score: result,
-      timestamp: Date.now()
-    });
-    
-    logger.info('Opportunity scored', {
-      score,
-      grade,
-      probability: probability.toFixed(3),
-      sport: features.sport,
-      bookmakers: features.bookmakers
-    });
-    
-    return result;
-  }
-
-  /**
-   * Batch score multiple opportunities
-   */
-  async scoreBatch(opportunities: OpportunityFeatures[]): Promise<ConfidenceScore[]> {
-    const scores = await Promise.all(
-      opportunities.map(opp => this.scoreOpportunity(opp))
-    );
-    
-    this.emit('batchScored', {
-      count: opportunities.length,
-      avgScore: scores.reduce((a, b) => a + b.score, 0) / scores.length,
-      timestamp: Date.now()
-    });
-    
-    return scores;
-  }
-
-  /**
-   * Update model with new outcome data (online learning)
-   */
-  async updateModel(
-    features: OpportunityFeatures,
-    outcome: { success: boolean; fillTimeMinutes: number; actualProfit: number }
-  ): Promise<void> {
-    // Store outcome for model refinement
-    const key = this.generateFeatureKey(features);
-    const existing = this.historicalData.get(key) || { outcomes: [], count: 0 };
-    
-    existing.outcomes.push({
-      ...outcome,
-      timestamp: Date.now()
-    });
-    existing.count++;
-    
-    this.historicalData.set(key, existing);
-    
-    // Update bookmaker profiles
-    for (const bookmaker of features.bookmakers) {
-      this.updateBookmakerProfile(bookmaker, outcome);
-    }
-    
-    // Emit update event
-    this.emit('modelUpdated', {
-      featureKey: key,
-      outcome,
-      historicalCount: existing.count,
-      timestamp: Date.now()
-    });
-    
-    logger.info('Model updated with outcome', {
-      bookmakers: features.bookmakers,
-      success: outcome.success,
-      fillTime: outcome.fillTimeMinutes
-    });
-  }
-
-  /**
-   * Get bookmaker reliability ranking
-   */
-  getBookmakerRanking(): Array<{ bookmaker: string; reliability: number; avgFillRate: number }> {
-    const rankings = [];
-    
-    for (const [bookmaker, profile] of this.bookmakerProfiles) {
-      rankings.push({
-        bookmaker,
-        reliability: profile.reliabilityScore,
-        avgFillRate: profile.avgFillRate
-      });
-    }
-    
-    return rankings.sort((a, b) => b.reliability - a.reliability);
-  }
-
-  /**
-   * Get sport-specific insights
-   */
-  getSportInsights(sport: string): {
-    avgSuccessRate: number;
-    avgFillTimeMinutes: number;
-    bestTimeOfDay: number;
-    bestDayOfWeek: number;
-    topBookmakers: string[];
-  } | null {
-    const profile = this.sportProfiles.get(sport);
-    if (!profile) return null;
-    
-    return {
-      avgSuccessRate: profile.successRate,
-      avgFillTimeMinutes: profile.avgFillTime,
-      bestTimeOfDay: profile.bestTimeOfDay,
-      bestDayOfWeek: profile.bestDayOfWeek,
-      topBookmakers: profile.topBookmakers
-    };
-  }
-
-  /**
-   * Export model for persistence
-   */
-  exportModel(): {
-    model: ScoringModel;
-    bookmakerProfiles: Record<string, BookmakerProfile>;
-    sportProfiles: Record<string, SportProfile>;
-    historicalDataCount: number;
-  } {
-    return {
-      model: this.model,
-      bookmakerProfiles: Object.fromEntries(this.bookmakerProfiles),
-      sportProfiles: Object.fromEntries(this.sportProfiles),
-      historicalDataCount: this.historicalData.size
-    };
-  }
-
-  /**
-   * Import model from persisted data
-   */
-  importModel(data: {
-    model?: ScoringModel;
-    bookmakerProfiles?: Record<string, BookmakerProfile>;
-    sportProfiles?: Record<string, SportProfile>;
-  }): void {
-    if (data.model) {
-      this.model = { ...this.model, ...data.model };
-    }
-    
-    if (data.bookmakerProfiles) {
-      this.bookmakerProfiles = new Map(Object.entries(data.bookmakerProfiles));
-    }
-    
-    if (data.sportProfiles) {
-      this.sportProfiles = new Map(Object.entries(data.sportProfiles));
-    }
-    
-    logger.info('Model imported', {
-      bookmakerProfiles: this.bookmakerProfiles.size,
-      sportProfiles: this.sportProfiles.size
-    });
-  }
-
-  // Private methods
-
-  private calculateProfitFactor(features: OpportunityFeatures): number {
-    // Higher profit is better, but with diminishing returns
-    const profit = features.profitPercent;
-    
-    if (profit >= 5) return 1.0;
-    if (profit >= 3) return 0.9;
-    if (profit >= 2) return 0.8;
-    if (profit >= 1) return 0.7;
-    if (profit >= 0.5) return 0.6;
-    return 0.4 + (profit / 0.5) * 0.2;
-  }
-
-  private calculateTimingFactor(features: OpportunityFeatures): number {
-    let score = 0.5;
-    
-    // Time to event - sweet spot is 1-24 hours before event
-    const hoursToEvent = features.timeToEventMinutes / 60;
-    if (hoursToEvent >= 1 && hoursToEvent <= 24) {
-      score += 0.3;
-    } else if (hoursToEvent > 24 && hoursToEvent <= 72) {
-      score += 0.2;
-    } else if (hoursToEvent < 1) {
-      score -= 0.2; // Too close to event, risky
-    }
-    
-    // Time of day factor (based on typical betting volumes)
-    const peakHours = [18, 19, 20, 21]; // Evening peak
-    if (peakHours.includes(features.timeOfDay)) {
-      score += 0.1;
-    }
-    
-    // Weekend factor
-    if (features.dayOfWeek === 0 || features.dayOfWeek === 6) {
-      score += 0.1;
-    }
-    
-    return Math.min(1, Math.max(0, score));
-  }
-
-  private calculateBookmakerFactor(features: OpportunityFeatures): number {
-    if (features.bookmakerReliabilityScores.length === 0) return 0.5;
-    
-    // Average reliability
-    const avgReliability = features.bookmakerReliabilityScores.reduce((a, b) => a + b, 0) 
-      / features.bookmakerReliabilityScores.length;
-    
-    // Average fill rate
-    const avgFillRate = features.bookmakerAvgFillRates.reduce((a, b) => a + b, 0)
-      / features.bookmakerAvgFillRates.length;
-    
-    // Penalize if limits are too low
-    const avgLimit = features.bookmakerLimitHistory.reduce((a, b) => a + b, 0)
-      / features.bookmakerLimitHistory.length;
-    const limitScore = Math.min(1, avgLimit / 100); // Normalize to 100 EUR baseline
-    
-    return (avgReliability * 0.4 + avgFillRate * 0.4 + limitScore * 0.2);
-  }
-
-  private calculateMarketFactor(features: OpportunityFeatures): number {
-    let score = 0.5;
-    
-    // Liquidity score
-    score += features.liquidityScore * 0.3;
-    
-    // Lower volatility is better
-    const volatilityPenalty = Math.min(0.3, features.oddsMovementVolatility * 0.1);
-    score -= volatilityPenalty;
-    
-    // Sport-specific adjustments
-    const sportProfile = this.sportProfiles.get(features.sport);
-    if (sportProfile) {
-      score += (sportProfile.successRate - 0.5) * 0.2;
-    }
-    
-    return Math.min(1, Math.max(0, score));
-  }
-
-  private calculateHistoricalFactor(features: OpportunityFeatures): number {
-    if (features.similarOpportunitiesCount === 0) return 0.5;
-    
-    // Historical success rate
-    let score = features.historicalSuccessRate;
-    
-    // Confidence based on sample size
-    const sampleConfidence = Math.min(1, features.similarOpportunitiesCount / 100);
-    
-    // Blend with neutral score if low confidence
-    score = score * sampleConfidence + 0.5 * (1 - sampleConfidence);
-    
-    // Factor in average fill time
-    if (features.avgTimeToFillMinutes < 5) {
-      score += 0.1; // Fast fills are good
-    } else if (features.avgTimeToFillMinutes > 30) {
-      score -= 0.1; // Slow fills are concerning
-    }
-    
-    return Math.min(1, Math.max(0, score));
-  }
-
-  private sigmoid(x: number): number {
-    return 1 / (1 + Math.exp(-x));
-  }
-
-  private scoreToGrade(score: number): ConfidenceScore['grade'] {
-    if (score >= this.model.thresholds.excellent) return 'A';
-    if (score >= this.model.thresholds.good) return 'B';
-    if (score >= this.model.thresholds.fair) return 'C';
-    if (score >= this.model.thresholds.poor) return 'D';
-    return 'F';
-  }
-
-  private generateExplanation(
-    features: OpportunityFeatures,
-    factors: { profitFactor: number; timingFactor: number; bookmakerFactor: number; marketFactor: number; historicalFactor: number }
-  ): string[] {
-    const explanations = [];
-    
-    if (factors.profitFactor > 0.8) {
-      explanations.push(`Strong profit potential (${features.profitPercent.toFixed(2)}%)`);
-    } else if (factors.profitFactor < 0.5) {
-      explanations.push(`Low profit margin (${features.profitPercent.toFixed(2)}%)`);
-    }
-    
-    if (factors.timingFactor > 0.8) {
-      explanations.push('Optimal timing - good window for execution');
-    } else if (features.timeToEventMinutes < 60) {
-      explanations.push('Urgent - event starts soon');
-    }
-    
-    if (factors.bookmakerFactor > 0.8) {
-      explanations.push('Reliable bookmakers with good fill rates');
-    } else if (factors.bookmakerFactor < 0.5) {
-      explanations.push('Bookmaker reliability concerns');
-    }
-    
-    if (factors.marketFactor > 0.8) {
-      explanations.push('High market liquidity');
-    } else if (features.liquidityScore < 0.3) {
-      explanations.push('Low liquidity - may be difficult to fill');
-    }
-    
-    if (factors.historicalFactor > 0.7 && features.similarOpportunitiesCount > 10) {
-      explanations.push(`Strong historical track record (${features.historicalSuccessRate.toFixed(1)}% success)`);
-    }
-    
-    return explanations;
-  }
-
-  private determineAction(score: number, features: OpportunityFeatures): ConfidenceScore['recommendedAction'] {
-    if (score >= 80) return 'execute';
-    if (score >= 60) return 'monitor';
-    if (features.profitPercent > 3 && score >= 50) return 'monitor';
-    return 'skip';
-  }
-
-  private estimateFillTime(features: OpportunityFeatures, score: number): number {
-    // Base estimate on historical data
-    let baseTime = features.avgTimeToFillMinutes || 10;
-    
-    // Adjust based on score
-    if (score >= 80) baseTime *= 0.7;
-    if (score <= 40) baseTime *= 1.5;
-    
-    // Adjust for liquidity
-    baseTime /= (0.5 + features.liquidityScore * 0.5);
-    
-    // Adjust for time to event (urgency)
-    if (features.timeToEventMinutes < 60) {
-      baseTime *= 0.5; // Faster fills close to event
-    }
-    
-    return Math.round(baseTime);
-  }
-
-  private calculateModelConfidence(features: OpportunityFeatures): number {
-    // Higher confidence with more historical data
-    let confidence = 0.5;
-    
-    confidence += Math.min(0.3, features.similarOpportunitiesCount / 100);
-    
-    // Confidence in bookmaker data
-    const knownBookmakers = features.bookmakers.filter(b => 
-      this.bookmakerProfiles.has(b)
-    ).length;
-    confidence += (knownBookmakers / features.bookmakers.length) * 0.2;
-    
-    return Math.min(0.95, confidence);
-  }
-
-  private generateFeatureKey(features: OpportunityFeatures): string {
-    return `${features.sport}:${features.market}:${features.bookmakers.sort().join(',')}`;
-  }
-
-  private loadBookmakerProfiles(): void {
-    // Initialize with default profiles
-    const defaults: Record<string, BookmakerProfile> = {
-      'pinnacle': { reliabilityScore: 0.95, avgFillRate: 0.98, avgLimit: 10000, gubbingRisk: 0.1 },
-      'betfair': { reliabilityScore: 0.92, avgFillRate: 0.95, avgLimit: 5000, gubbingRisk: 0.15 },
-      'unibet': { reliabilityScore: 0.85, avgFillRate: 0.88, avgLimit: 500, gubbingRisk: 0.3 },
-      'betclic': { reliabilityScore: 0.82, avgFillRate: 0.85, avgLimit: 300, gubbingRisk: 0.35 },
-      'winamax': { reliabilityScore: 0.80, avgFillRate: 0.82, avgLimit: 400, gubbingRisk: 0.4 },
-      'fdj': { reliabilityScore: 0.78, avgFillRate: 0.80, avgLimit: 200, gubbingRisk: 0.25 },
-      'parionsport': { reliabilityScore: 0.77, avgFillRate: 0.78, avgLimit: 250, gubbingRisk: 0.3 },
-      'zebet': { reliabilityScore: 0.75, avgFillRate: 0.75, avgLimit: 200, gubbingRisk: 0.35 },
-      'cloudbet': { reliabilityScore: 0.88, avgFillRate: 0.90, avgLimit: 2000, gubbingRisk: 0.2 },
-      'smarkets': { reliabilityScore: 0.90, avgFillRate: 0.92, avgLimit: 3000, gubbingRisk: 0.15 }
-    };
-    
-    for (const [key, profile] of Object.entries(defaults)) {
-      this.bookmakerProfiles.set(key, profile);
-    }
-  }
-
-  private loadSportProfiles(): void {
-    // Initialize with default sport profiles
-    const defaults: Record<string, SportProfile> = {
-      'soccer': { successRate: 0.72, avgFillTime: 8, bestTimeOfDay: 20, bestDayOfWeek: 6, topBookmakers: ['pinnacle', 'betfair', 'unibet'] },
-      'tennis': { successRate: 0.68, avgFillTime: 12, bestTimeOfDay: 19, bestDayOfWeek: 0, topBookmakers: ['pinnacle', 'betfair', 'winamax'] },
-      'basketball': { successRate: 0.70, avgFillTime: 10, bestTimeOfDay: 21, bestDayOfWeek: 5, topBookmakers: ['pinnacle', 'cloudbet', 'unibet'] },
-      'esports': { successRate: 0.65, avgFillTime: 15, bestTimeOfDay: 22, bestDayOfWeek: 5, topBookmakers: ['cloudbet', 'pinnacle', 'winamax'] },
-      'baseball': { successRate: 0.71, avgFillTime: 9, bestTimeOfDay: 20, bestDayOfWeek: 3, topBookmakers: ['pinnacle', 'betfair', 'cloudbet'] },
-      'hockey': { successRate: 0.69, avgFillTime: 11, bestTimeOfDay: 20, bestDayOfWeek: 4, topBookmakers: ['pinnacle', 'unibet', 'betfair'] }
-    };
-    
-    for (const [key, profile] of Object.entries(defaults)) {
-      this.sportProfiles.set(key, profile);
-    }
-  }
-
-  private updateBookmakerProfile(bookmaker: string, outcome: { success: boolean; fillTimeMinutes: number }): void {
-    const profile = this.bookmakerProfiles.get(bookmaker);
-    if (!profile) return;
-    
-    // Update reliability with exponential moving average
-    const alpha = 0.1;
-    profile.reliabilityScore = profile.reliabilityScore * (1 - alpha) + (outcome.success ? 1 : 0) * alpha;
-    
-    // Update average fill time
-    profile.avgFillRate = profile.avgFillRate * (1 - alpha) + (outcome.fillTimeMinutes < 15 ? 1 : 0) * alpha;
-  }
-}
-
-interface BookmakerProfile {
+export interface BookmakerProfile {
   reliabilityScore: number;
   avgFillRate: number;
   avgLimit: number;
   gubbingRisk: number;
 }
 
-interface SportProfile {
+export interface SportProfile {
   successRate: number;
   avgFillTime: number;
   bestTimeOfDay: number;
@@ -590,12 +118,535 @@ interface SportProfile {
   topBookmakers: string[];
 }
 
-// Singleton instance
+export interface Outcome {
+  success: boolean;
+  fillTimeMinutes: number;
+  actualProfit: number;
+}
+
+// ============================================================================
+// UTILITIES - Small, testable functions
+// ============================================================================
+
+const average = (values: number[]): number =>
+  values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length;
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value));
+
+const sigmoid = (x: number): number => 1 / (1 + Math.exp(-x));
+
+const hoursFromMinutes = (minutes: number): number => minutes / 60;
+
+// ============================================================================
+// FACTOR CALCULATORS - Each does one thing well
+// ============================================================================
+
+interface FactorCalculator {
+  calculate(features: OpportunityFeatures): number;
+}
+
+class ProfitFactorCalculator implements FactorCalculator {
+  calculate(features: OpportunityFeatures): number {
+    const tier = PROFIT_TIERS.find(t => features.profitPercent >= t.min);
+    if (tier) return tier.score;
+    
+    // Linear interpolation below lowest tier
+    return 0.4 + (features.profitPercent / 0.5) * 0.2;
+  }
+}
+
+class TimingFactorCalculator implements FactorCalculator {
+  calculate(features: OpportunityFeatures): number {
+    let score = 0.5;
+    const hoursToEvent = hoursFromMinutes(features.timeToEventMinutes);
+
+    // Sweet spot: 1-24 hours before event
+    if (hoursToEvent >= TIMING.sweetSpotHours.min && hoursToEvent <= TIMING.sweetSpotHours.max) {
+      score += 0.3;
+    } else if (hoursToEvent > TIMING.sweetSpotHours.max && hoursToEvent <= TIMING.extendedWindowHours) {
+      score += 0.2;
+    } else if (hoursToEvent < TIMING.sweetSpotHours.min) {
+      score -= 0.2;
+    }
+
+    // Peak hours bonus
+    if ([18, 19, 20, 21].includes(features.timeOfDay)) {
+      score += 0.1;
+    }
+
+    // Weekend bonus
+    if ([0, 6].includes(features.dayOfWeek)) {
+      score += 0.1;
+    }
+
+    return clamp(score, 0, 1);
+  }
+}
+
+class BookmakerFactorCalculator implements FactorCalculator {
+  calculate(features: OpportunityFeatures): number {
+    const reliabilities = features.bookmakerReliabilityScores;
+    const fillRates = features.bookmakerAvgFillRates;
+    const limits = features.bookmakerLimitHistory;
+
+    if (reliabilities.length === 0) return 0.5;
+
+    const avgReliability = average(reliabilities);
+    const avgFillRate = average(fillRates);
+    const avgLimit = average(limits);
+    const limitScore = Math.min(1, avgLimit / BASELINE_LIMIT);
+
+    return avgReliability * 0.4 + avgFillRate * 0.4 + limitScore * 0.2;
+  }
+}
+
+class MarketFactorCalculator implements FactorCalculator {
+  constructor(private sportProfiles: ProfileRepository<SportProfile>) {}
+
+  calculate(features: OpportunityFeatures): number {
+    let score = 0.5;
+
+    // Liquidity contribution
+    score += features.liquidityScore * 0.3;
+
+    // Volatility penalty
+    const volatilityPenalty = Math.min(0.3, features.oddsMovementVolatility * 0.1);
+    score -= volatilityPenalty;
+
+    // Sport-specific adjustment
+    const sportProfile = this.sportProfiles.get(features.sport);
+    if (sportProfile) {
+      score += (sportProfile.successRate - 0.5) * 0.2;
+    }
+
+    return clamp(score, 0, 1);
+  }
+}
+
+class HistoricalFactorCalculator implements FactorCalculator {
+  calculate(features: OpportunityFeatures): number {
+    if (features.similarOpportunitiesCount === 0) return 0.5;
+
+    // Sample size confidence
+    const sampleConfidence = Math.min(1, features.similarOpportunitiesCount / 100);
+    let score = features.historicalSuccessRate * sampleConfidence + 0.5 * (1 - sampleConfidence);
+
+    // Fill time adjustment
+    if (features.avgTimeToFillMinutes < 5) {
+      score += 0.1;
+    } else if (features.avgTimeToFillMinutes > 30) {
+      score -= 0.1;
+    }
+
+    return clamp(score, 0, 1);
+  }
+}
+
+// ============================================================================
+// COMPOSITE SCORE CALCULATOR - Orchestrates factor calculators
+// ============================================================================
+
+class CompositeScoreCalculator {
+  private calculators: Record<keyof FactorScores, FactorCalculator>;
+
+  constructor(sportProfiles: ProfileRepository<SportProfile>) {
+    this.calculators = {
+      profit: new ProfitFactorCalculator(),
+      timing: new TimingFactorCalculator(),
+      bookmaker: new BookmakerFactorCalculator(),
+      market: new MarketFactorCalculator(sportProfiles),
+      historical: new HistoricalFactorCalculator()
+    };
+  }
+
+  calculate(features: OpportunityFeatures): { factors: FactorScores; composite: number } {
+    const factors: FactorScores = {
+      profit: this.calculators.profit.calculate(features),
+      timing: this.calculators.timing.calculate(features),
+      bookmaker: this.calculators.bookmaker.calculate(features),
+      market: this.calculators.market.calculate(features),
+      historical: this.calculators.historical.calculate(features)
+    };
+
+    const composite =
+      factors.profit * WEIGHTS.profit +
+      factors.timing * WEIGHTS.timing +
+      factors.bookmaker * WEIGHTS.bookmaker +
+      factors.market * WEIGHTS.market +
+      factors.historical * WEIGHTS.historical;
+
+    return { factors, composite };
+  }
+}
+
+// ============================================================================
+// GRADE & ACTION DETERMINERS - Pure functions, no side effects
+// ============================================================================
+
+const scoreToGrade = (score: number): Grade => {
+  if (score >= THRESHOLDS.excellent) return 'A';
+  if (score >= THRESHOLDS.good) return 'B';
+  if (score >= THRESHOLDS.fair) return 'C';
+  if (score >= THRESHOLDS.poor) return 'D';
+  return 'F';
+};
+
+const determineAction = (score: number, profitPercent: number): Action => {
+  if (score >= 80) return 'execute';
+  if (score >= 60) return 'monitor';
+  if (profitPercent > 3 && score >= 50) return 'monitor';
+  return 'skip';
+};
+
+// ============================================================================
+// EXPLANATION GENERATOR - Declarative rule-based system
+// ============================================================================
+
+interface ExplanationRule {
+  condition: (features: OpportunityFeatures, factors: FactorScores) => boolean;
+  message: (features: OpportunityFeatures, factors: FactorScores) => string;
+}
+
+const EXPLANATION_RULES: ExplanationRule[] = [
+  {
+    condition: (_, factors) => factors.profit > 0.8,
+    message: (features) => `Strong profit potential (${features.profitPercent.toFixed(2)}%)`
+  },
+  {
+    condition: (_, factors) => factors.profit < 0.5,
+    message: (features) => `Low profit margin (${features.profitPercent.toFixed(2)}%)`
+  },
+  {
+    condition: (_, factors) => factors.timing > 0.8,
+    message: () => 'Optimal timing - good window for execution'
+  },
+  {
+    condition: (features) => features.timeToEventMinutes < 60,
+    message: () => 'Urgent - event starts soon'
+  },
+  {
+    condition: (_, factors) => factors.bookmaker > 0.8,
+    message: () => 'Reliable bookmakers with good fill rates'
+  },
+  {
+    condition: (_, factors) => factors.bookmaker < 0.5,
+    message: () => 'Bookmaker reliability concerns'
+  },
+  {
+    condition: (_, factors) => factors.market > 0.8,
+    message: () => 'High market liquidity'
+  },
+  {
+    condition: (features) => features.liquidityScore < 0.3,
+    message: () => 'Low liquidity - may be difficult to fill'
+  },
+  {
+    condition: (features, factors) => 
+      factors.historical > 0.7 && features.similarOpportunitiesCount > 10,
+    message: (features) => `Strong historical track record (${features.historicalSuccessRate.toFixed(1)}% success)`
+  }
+];
+
+const generateExplanations = (
+  features: OpportunityFeatures,
+  factors: FactorScores
+): string[] =>
+  EXPLANATION_RULES
+    .filter(rule => rule.condition(features, factors))
+    .map(rule => rule.message(features, factors));
+
+// ============================================================================
+// FILL TIME ESTIMATOR - Encapsulated estimation logic
+// ============================================================================
+
+class FillTimeEstimator {
+  estimate(features: OpportunityFeatures, score: number): number {
+    let baseTime = features.avgTimeToFillMinutes || 10;
+
+    // Score adjustment
+    if (score >= 80) baseTime *= 0.7;
+    if (score <= 40) baseTime *= 1.5;
+
+    // Liquidity adjustment
+    baseTime /= (0.5 + features.liquidityScore * 0.5);
+
+    // Urgency adjustment
+    if (features.timeToEventMinutes < 60) {
+      baseTime *= 0.5;
+    }
+
+    return Math.round(baseTime);
+  }
+}
+
+// ============================================================================
+// MODEL CONFIDENCE CALCULATOR
+// ============================================================================
+
+class ModelConfidenceCalculator {
+  constructor(private bookmakerProfiles: ProfileRepository<BookmakerProfile>) {}
+
+  calculate(features: OpportunityFeatures): number {
+    let confidence = 0.5;
+
+    // Historical data confidence
+    confidence += Math.min(0.3, features.similarOpportunitiesCount / 100);
+
+    // Known bookmaker confidence
+    const knownBookmakers = features.bookmakers.filter(b =>
+      this.bookmakerProfiles.has(b)
+    ).length;
+    confidence += (knownBookmakers / features.bookmakers.length) * 0.2;
+
+    return Math.min(0.95, confidence);
+  }
+}
+
+// ============================================================================
+// PROFILE REPOSITORIES - Data access layer
+// ============================================================================
+
+const DEFAULT_BOOKMAKER_PROFILES: Record<string, BookmakerProfile> = {
+  pinnacle: { reliabilityScore: 0.95, avgFillRate: 0.98, avgLimit: 10000, gubbingRisk: 0.1 },
+  betfair: { reliabilityScore: 0.92, avgFillRate: 0.95, avgLimit: 5000, gubbingRisk: 0.15 },
+  unibet: { reliabilityScore: 0.85, avgFillRate: 0.88, avgLimit: 500, gubbingRisk: 0.3 },
+  betclic: { reliabilityScore: 0.82, avgFillRate: 0.85, avgLimit: 300, gubbingRisk: 0.35 },
+  winamax: { reliabilityScore: 0.80, avgFillRate: 0.82, avgLimit: 400, gubbingRisk: 0.4 },
+  fdj: { reliabilityScore: 0.78, avgFillRate: 0.80, avgLimit: 200, gubbingRisk: 0.25 },
+  parionsport: { reliabilityScore: 0.77, avgFillRate: 0.78, avgLimit: 250, gubbingRisk: 0.3 },
+  zebet: { reliabilityScore: 0.75, avgFillRate: 0.75, avgLimit: 200, gubbingRisk: 0.35 },
+  cloudbet: { reliabilityScore: 0.88, avgFillRate: 0.90, avgLimit: 2000, gubbingRisk: 0.2 },
+  smarkets: { reliabilityScore: 0.90, avgFillRate: 0.92, avgLimit: 3000, gubbingRisk: 0.15 }
+};
+
+const DEFAULT_SPORT_PROFILES: Record<string, SportProfile> = {
+  soccer: { successRate: 0.72, avgFillTime: 8, bestTimeOfDay: 20, bestDayOfWeek: 6, topBookmakers: ['pinnacle', 'betfair', 'unibet'] },
+  tennis: { successRate: 0.68, avgFillTime: 12, bestTimeOfDay: 19, bestDayOfWeek: 0, topBookmakers: ['pinnacle', 'betfair', 'winamax'] },
+  basketball: { successRate: 0.70, avgFillTime: 10, bestTimeOfDay: 21, bestDayOfWeek: 5, topBookmakers: ['pinnacle', 'cloudbet', 'unibet'] },
+  esports: { successRate: 0.65, avgFillTime: 15, bestTimeOfDay: 22, bestDayOfWeek: 5, topBookmakers: ['cloudbet', 'pinnacle', 'winamax'] },
+  baseball: { successRate: 0.71, avgFillTime: 9, bestTimeOfDay: 20, bestDayOfWeek: 3, topBookmakers: ['pinnacle', 'betfair', 'cloudbet'] },
+  hockey: { successRate: 0.69, avgFillTime: 11, bestTimeOfDay: 20, bestDayOfWeek: 4, topBookmakers: ['pinnacle', 'unibet', 'betfair'] }
+};
+
+class ProfileRepository<T> {
+  private profiles: Map<string, T>;
+
+  constructor(defaults: Record<string, T>) {
+    this.profiles = new Map(Object.entries(defaults));
+  }
+
+  get(key: string): T | undefined {
+    return this.profiles.get(key);
+  }
+
+  set(key: string, profile: T): void {
+    this.profiles.set(key, profile);
+  }
+
+  has(key: string): boolean {
+    return this.profiles.has(key);
+  }
+
+  entries(): IterableIterator<[string, T]> {
+    return this.profiles.entries();
+  }
+
+  toRecord(): Record<string, T> {
+    return Object.fromEntries(this.profiles);
+  }
+
+  loadFromRecord(record: Record<string, T>): void {
+    this.profiles = new Map(Object.entries(record));
+  }
+}
+
+// ============================================================================
+// HISTORICAL DATA STORE - Encapsulated persistence
+// ============================================================================
+
+interface HistoricalEntry {
+  outcomes: Array<Outcome & { timestamp: number }>;
+  count: number;
+}
+
+class HistoricalDataStore {
+  private data: Map<string, HistoricalEntry> = new Map();
+
+  get(key: string): HistoricalEntry | undefined {
+    return this.data.get(key);
+  }
+
+  addOutcome(key: string, outcome: Outcome): void {
+    const existing = this.data.get(key) ?? { outcomes: [], count: 0 };
+    existing.outcomes.push({ ...outcome, timestamp: Date.now() });
+    existing.count++;
+    this.data.set(key, existing);
+  }
+
+  size(): number {
+    return this.data.size;
+  }
+
+  toRecord(): Record<string, HistoricalEntry> {
+    return Object.fromEntries(this.data);
+  }
+}
+
+// ============================================================================
+// MAIN SCORER CLASS - Orchestration only, minimal logic
+// ============================================================================
+
+export class OpportunityConfidenceScorer extends EventEmitter {
+  private compositeCalculator: CompositeScoreCalculator;
+  private fillTimeEstimator: FillTimeEstimator;
+  private confidenceCalculator: ModelConfidenceCalculator;
+  private bookmakerProfiles: ProfileRepository<BookmakerProfile>;
+  private sportProfiles: ProfileRepository<SportProfile>;
+  private historicalData: HistoricalDataStore;
+
+  constructor() {
+    super();
+    
+    this.bookmakerProfiles = new ProfileRepository(DEFAULT_BOOKMAKER_PROFILES);
+    this.sportProfiles = new ProfileRepository(DEFAULT_SPORT_PROFILES);
+    this.historicalData = new HistoricalDataStore();
+    
+    this.compositeCalculator = new CompositeScoreCalculator(this.sportProfiles);
+    this.fillTimeEstimator = new FillTimeEstimator();
+    this.confidenceCalculator = new ModelConfidenceCalculator(this.bookmakerProfiles);
+  }
+
+  async scoreOpportunity(features: OpportunityFeatures): Promise<ConfidenceScore> {
+    const { factors, composite } = this.compositeCalculator.calculate(features);
+    const score = Math.round(composite * 100);
+
+    const result: ConfidenceScore = {
+      score,
+      confidence: this.confidenceCalculator.calculate(features),
+      probability: sigmoid(composite * 2 - 1),
+      grade: scoreToGrade(score),
+      factors,
+      explanation: generateExplanations(features, factors),
+      recommendedAction: determineAction(score, features.profitPercent),
+      estimatedFillTimeMinutes: this.fillTimeEstimator.estimate(features, score)
+    };
+
+    this.emit('opportunityScored', { features, score: result, timestamp: Date.now() });
+    
+    logger.info('Opportunity scored', {
+      score,
+      grade: result.grade,
+      probability: result.probability.toFixed(3),
+      sport: features.sport,
+      bookmakers: features.bookmakers
+    });
+
+    return result;
+  }
+
+  async scoreBatch(opportunities: OpportunityFeatures[]): Promise<ConfidenceScore[]> {
+    const scores = await Promise.all(
+      opportunities.map(opp => this.scoreOpportunity(opp))
+    );
+
+    this.emit('batchScored', {
+      count: opportunities.length,
+      avgScore: average(scores.map(s => s.score)),
+      timestamp: Date.now()
+    });
+
+    return scores;
+  }
+
+  async updateModel(features: OpportunityFeatures, outcome: Outcome): Promise<void> {
+    const key = this.generateFeatureKey(features);
+    this.historicalData.addOutcome(key, outcome);
+
+    for (const bookmaker of features.bookmakers) {
+      this.updateBookmakerProfile(bookmaker, outcome);
+    }
+
+    this.emit('modelUpdated', {
+      featureKey: key,
+      outcome,
+      historicalCount: this.historicalData.size(),
+      timestamp: Date.now()
+    });
+
+    logger.info('Model updated with outcome', {
+      bookmakers: features.bookmakers,
+      success: outcome.success,
+      fillTime: outcome.fillTimeMinutes
+    });
+  }
+
+  getBookmakerRanking(): Array<{ bookmaker: string; reliability: number; avgFillRate: number }> {
+    return Array.from(this.bookmakerProfiles.entries())
+      .map(([bookmaker, profile]) => ({
+        bookmaker,
+        reliability: profile.reliabilityScore,
+        avgFillRate: profile.avgFillRate
+      }))
+      .sort((a, b) => b.reliability - a.reliability);
+  }
+
+  getSportInsights(sport: string): Omit<SportProfile, 'topBookmakers'> & { topBookmakers: string[] } | null {
+    const profile = this.sportProfiles.get(sport);
+    return profile ?? null;
+  }
+
+  exportModel(): {
+    bookmakerProfiles: Record<string, BookmakerProfile>;
+    sportProfiles: Record<string, SportProfile>;
+    historicalDataCount: number;
+  } {
+    return {
+      bookmakerProfiles: this.bookmakerProfiles.toRecord(),
+      sportProfiles: this.sportProfiles.toRecord(),
+      historicalDataCount: this.historicalData.size()
+    };
+  }
+
+  importModel(data: {
+    bookmakerProfiles?: Record<string, BookmakerProfile>;
+    sportProfiles?: Record<string, SportProfile>;
+  }): void {
+    if (data.bookmakerProfiles) {
+      this.bookmakerProfiles.loadFromRecord(data.bookmakerProfiles);
+    }
+    if (data.sportProfiles) {
+      this.sportProfiles.loadFromRecord(data.sportProfiles);
+    }
+
+    logger.info('Model imported', {
+      bookmakerProfiles: this.bookmakerProfiles.entries.length,
+      sportProfiles: this.sportProfiles.entries.length
+    });
+  }
+
+  private generateFeatureKey(features: OpportunityFeatures): string {
+    return `${features.sport}:${features.market}:${features.bookmakers.slice().sort().join(',')}`;
+  }
+
+  private updateBookmakerProfile(bookmaker: string, outcome: Outcome): void {
+    const profile = this.bookmakerProfiles.get(bookmaker);
+    if (!profile) return;
+
+    profile.reliabilityScore = profile.reliabilityScore * (1 - EMA_ALPHA) + (outcome.success ? 1 : 0) * EMA_ALPHA;
+    profile.avgFillRate = profile.avgFillRate * (1 - EMA_ALPHA) + (outcome.fillTimeMinutes < 15 ? 1 : 0) * EMA_ALPHA;
+  }
+}
+
+// ============================================================================
+// SINGLETON ACCESSOR
+// ============================================================================
+
 let defaultScorer: OpportunityConfidenceScorer | null = null;
 
-export function getOpportunityConfidenceScorer(model?: Partial<ScoringModel>): OpportunityConfidenceScorer {
+export function getOpportunityConfidenceScorer(): OpportunityConfidenceScorer {
   if (!defaultScorer) {
-    defaultScorer = new OpportunityConfidenceScorer(model);
+    defaultScorer = new OpportunityConfidenceScorer();
   }
   return defaultScorer;
 }

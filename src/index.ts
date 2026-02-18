@@ -4,6 +4,11 @@ import logger from './utils/logger.js';
 import { metricsMiddleware, register } from './utils/metrics.js';
 import { SlippageProtector, getSlippageProtector } from './slippage-protector.js';
 import { SlippageProtectionWebSocket } from './slippage-protection-websocket.js';
+import { OpportunityConfidenceScorer, getOpportunityConfidenceScorer } from './opportunity-confidence-scorer.js';
+import { ConfidenceScoringWebSocket } from './confidence-scoring-websocket.js';
+import { CrossSportArbitrageService } from './cross-sport-arbitrage-service.js';
+import { CrossSportArbitrageWebSocket } from './cross-sport-arbitrage-websocket.js';
+import createCrossSportRoutes from './web/cross-sport-routes.js';
 
 /**
  * Surebet Detector - Real-time Odds Aggregation Service
@@ -134,6 +139,47 @@ async function main() {
   
   logger.info('Slippage protection initialized', { config: slippageConfig, wsPort: slippageWsPort });
 
+  // Initialize opportunity confidence scorer
+  const confidenceScorer = getOpportunityConfidenceScorer({
+    weights: {
+      profit: parseFloat(process.env.CONFIDENCE_WEIGHT_PROFIT || '0.25'),
+      timing: parseFloat(process.env.CONFIDENCE_WEIGHT_TIMING || '0.20'),
+      bookmaker: parseFloat(process.env.CONFIDENCE_WEIGHT_BOOKMAKER || '0.20'),
+      market: parseFloat(process.env.CONFIDENCE_WEIGHT_MARKET || '0.20'),
+      historical: parseFloat(process.env.CONFIDENCE_WEIGHT_HISTORICAL || '0.15')
+    },
+    thresholds: {
+      excellent: parseInt(process.env.CONFIDENCE_THRESHOLD_EXCELLENT || '85'),
+      good: parseInt(process.env.CONFIDENCE_THRESHOLD_GOOD || '70'),
+      fair: parseInt(process.env.CONFIDENCE_THRESHOLD_FAIR || '55'),
+      poor: parseInt(process.env.CONFIDENCE_THRESHOLD_POOR || '40')
+    }
+  });
+
+  // Start confidence scoring WebSocket server
+  const confidenceWsPort = parseInt(process.env.CONFIDENCE_WS_PORT || '8082');
+  const confidenceWs = new ConfidenceScoringWebSocket(confidenceScorer, confidenceWsPort);
+
+  logger.info('Opportunity confidence scoring initialized', { wsPort: confidenceWsPort });
+
+  // Initialize cross-sport arbitrage service
+  const crossSportService = new CrossSportArbitrageService({
+    minProfitPercent: parseFloat(process.env.CROSS_SPORT_MIN_PROFIT || '0.3'),
+    maxProfitPercent: parseFloat(process.env.CROSS_SPORT_MAX_PROFIT || '15'),
+    minCorrelationStrength: parseFloat(process.env.CROSS_SPORT_MIN_CORRELATION || '0.6'),
+    minConfidence: parseFloat(process.env.CROSS_SPORT_MIN_CONFIDENCE || '0.5'),
+    scanIntervalMs: parseInt(process.env.CROSS_SPORT_SCAN_INTERVAL || '30000'),
+    maxOpportunitiesCache: parseInt(process.env.CROSS_SPORT_MAX_CACHE || '1000')
+  });
+
+  await crossSportService.start();
+
+  // Start cross-sport arbitrage WebSocket server
+  const crossSportWsPort = parseInt(process.env.CROSS_SPORT_WS_PORT || '8083');
+  const crossSportWs = new CrossSportArbitrageWebSocket(crossSportService, crossSportWsPort);
+
+  logger.info('Cross-sport arbitrage service initialized', { wsPort: crossSportWsPort });
+
   // Register event handlers
   engine.on('engine:started', () => {
     logger.info('Odds aggregation engine started');
@@ -177,6 +223,59 @@ async function main() {
     logger.debug(`Aggregated odds for event: ${data.eventId}`);
   });
 
+  // Listen for arbitrage opportunities and score them
+  engine.on('arbitrage:detected', async (opportunity: any) => {
+    logger.info('Arbitrage opportunity detected, scoring confidence...', {
+      match: opportunity.match,
+      profit: opportunity.profitPercent
+    });
+
+    try {
+      // Extract features from the opportunity for scoring
+      const features = {
+        profitPercent: opportunity.profitPercent || 0,
+        expectedValue: opportunity.expectedValue || 0,
+        timeToEventMinutes: opportunity.timeToEventMinutes || 120,
+        timeOfDay: new Date().getHours(),
+        dayOfWeek: new Date().getDay(),
+        bookmakers: opportunity.bookmakers || [],
+        bookmakerReliabilityScores: opportunity.bookmakerReliabilityScores || [0.8, 0.8],
+        bookmakerAvgFillRates: opportunity.bookmakerAvgFillRates || [0.85, 0.85],
+        bookmakerLimitHistory: opportunity.bookmakerLimitHistory || [500, 500],
+        sport: opportunity.sport || 'soccer',
+        league: opportunity.league || 'Unknown',
+        market: opportunity.market || '1X2',
+        liquidityScore: opportunity.liquidityScore || 0.7,
+        oddsMovementVolatility: opportunity.oddsMovementVolatility || 0.05,
+        historicalSuccessRate: opportunity.historicalSuccessRate || 0.7,
+        similarOpportunitiesCount: opportunity.similarOpportunitiesCount || 10,
+        avgTimeToFillMinutes: opportunity.avgTimeToFillMinutes || 10,
+        competitorCount: opportunity.competitorCount || 5,
+        marketEfficiency: opportunity.marketEfficiency || 0.7
+      };
+
+      // Score and broadcast the opportunity
+      const score = await confidenceWs.scoreAndBroadcast(
+        opportunity.id || `opp_${Date.now()}`,
+        opportunity.match || 'Unknown Match',
+        opportunity.sport || 'soccer',
+        opportunity.league || 'Unknown',
+        opportunity.market || '1X2',
+        opportunity.bookmakers || [],
+        features
+      );
+
+      logger.info('Opportunity confidence scored', {
+        match: opportunity.match,
+        score: score.score,
+        grade: score.grade,
+        action: score.recommendedAction
+      });
+    } catch (error) {
+      logger.error('Failed to score opportunity:', error);
+    }
+  });
+
   engine.on('error', ({ source, bookmaker, error }) => {
     logger.error(`Error from ${source}${bookmaker ? ` (${bookmaker})` : ''}:`, error);
   });
@@ -197,6 +296,9 @@ async function main() {
   const port = parseInt(process.env.PORT || '3000');
   const app = createServer(engine);
   
+  // Add cross-sport arbitrage routes
+  app.use('/api/cross-sport', createCrossSportRoutes(crossSportService));
+  
   app.listen(port, () => {
     logger.info(`API server listening on port ${port}`);
   });
@@ -204,6 +306,9 @@ async function main() {
   // Graceful shutdown
   process.on('SIGTERM', async () => {
     logger.info('SIGTERM received, shutting down gracefully');
+    await crossSportWs.close();
+    await crossSportService.stop();
+    await confidenceWs.close();
     await slippageWs.close();
     slippageProtector.dispose();
     await engine.stop();
@@ -212,6 +317,9 @@ async function main() {
 
   process.on('SIGINT', async () => {
     logger.info('SIGINT received, shutting down gracefully');
+    await crossSportWs.close();
+    await crossSportService.stop();
+    await confidenceWs.close();
     await slippageWs.close();
     slippageProtector.dispose();
     await engine.stop();
