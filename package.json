@@ -7,8 +7,10 @@
     "start": "node src/index.js",
     "fetch": "node run-hourly.js",
     "analyze": "node src/analyzer.js",
-    "test": "node --test",
-    "lint": "echo 'No linter configured'"
+    "test": "vitest run",
+    "test:unit": "vitest run src/",
+    "test:watch": "vitest",
+    "lint": "eslint src/ --ext .js,.ts"
   },
   "dependencies": {
     "@apollo/server": "^5.4.0",
