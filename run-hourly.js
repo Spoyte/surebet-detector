@@ -207,7 +207,8 @@ async function main() {
                 });
                 console.log('✅ Telegram notification sent');
             } catch (error) {
-                console.error('❌ Telegram notification failed:', error.message);
+                const errorMsg = error.response?.data?.description || error.message || 'Unknown error';
+                console.error('❌ Telegram notification failed:', errorMsg);
             }
         } else {
             console.log('ℹ️  No high-value opportunities to notify');
