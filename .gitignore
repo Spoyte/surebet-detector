@@ -3,3 +3,4 @@ data/cache/
 config/.env
 .DS_Store
 *.log
+HOURLY_REPORT_*.md
