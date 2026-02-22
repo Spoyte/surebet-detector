@@ -709,6 +709,9 @@ function createLoggerWithAudit(options = {}) {
     return { logger, audit, debug };
 }
 
+// Create default logger instance for compatibility with TypeScript imports
+const defaultLogger = createLogger();
+
 module.exports = {
     Logger,
     AuditTrail,
@@ -716,5 +719,7 @@ module.exports = {
     LogLevel,
     LogLevelNames,
     createLogger,
-    createLoggerWithAudit
+    createLoggerWithAudit,
+    default: defaultLogger
 };
+module.exports.default = defaultLogger;
