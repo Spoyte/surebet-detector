@@ -317,13 +317,14 @@ class AlertSubscriptionManager {
                     return false;
                 }
                 break;
-            case 'team':
-                const teams = [opportunity.homeTeam, opportunity.awayTeam, 
+            case 'team': {
+                const teams = [opportunity.homeTeam, opportunity.awayTeam,
                               opportunity.team1, opportunity.team2].filter(Boolean);
                 if (!teams.some(t => t.toLowerCase().includes(sub.value))) {
                     return false;
                 }
                 break;
+            }
             case 'event':
                 if (opportunity.eventId !== sub.value) {
                     return false;

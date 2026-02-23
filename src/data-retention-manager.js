@@ -2,7 +2,7 @@
 
 /**
  * Data Retention and Archiving Manager
- * 
+ *
  * Handles automatic archiving of old data, configurable retention policies,
  * data compression, and cleanup of historical records.
  */
@@ -44,7 +44,7 @@ const DEFAULT_CONFIG = {
     [DATA_TYPES.HOURLY_REPORTS]: 60,
     [DATA_TYPES.SETTLEMENTS]: 365 * 2 // 2 years for tax purposes
   },
-  
+
   // Archive settings
   archive: {
     enabled: true,
@@ -55,14 +55,14 @@ const DEFAULT_CONFIG = {
     archivePath: './data/archive',
     tempPath: './data/temp'
   },
-  
+
   // Scheduling
   schedule: {
     cleanupIntervalHours: 24,    // Run cleanup every X hours
     archiveIntervalHours: 168,   // Run full archive every week
     maxCleanupDurationMs: 300000 // Max 5 minutes for cleanup
   },
-  
+
   // Safety
   safety: {
     dryRun: false,               // If true, only log what would be done
@@ -110,7 +110,7 @@ class DataRetentionManager {
     // Create archive and temp directories
     await this.ensureDirectory(this.config.archive.archivePath);
     await this.ensureDirectory(this.config.archive.tempPath);
-    
+
     // Create subdirectories for each data type
     for (const dataType of Object.values(DATA_TYPES)) {
       await this.ensureDirectory(path.join(this.config.archive.archivePath, dataType));
@@ -245,7 +245,7 @@ class DataRetentionManager {
   async processDataType(dataType) {
     const results = { compressed: 0, archived: 0, deleted: 0 };
     const dataPath = this.getDataPath(dataType);
-    
+
     try {
       // Check if data path exists
       await fs.access(dataPath);
@@ -347,13 +347,13 @@ class DataRetentionManager {
       const content = await fs.readFile(filePath);
       const compressed = await gzip(content, { level: this.config.archive.compressionLevel });
       const compressedPath = `${filePath}.gz`;
-      
+
       await fs.writeFile(compressedPath, compressed);
       await fs.unlink(filePath);
-      
+
       const saved = content.length - compressed.length;
       this.stats.spaceSaved += saved;
-      
+
       return true;
     } catch (error) {
       console.error(`Failed to compress ${filePath}:`, error);
@@ -368,28 +368,29 @@ class DataRetentionManager {
     try {
       const fileName = path.basename(filePath);
       const archiveDir = path.join(this.config.archive.archivePath, dataType);
-      const archivePath = path.join(archiveDir, fileName);
-      
+      const targetArchivePath = path.join(archiveDir, fileName);
+
       // Compress if not already
       let sourcePath = filePath;
+      let finalFileName = fileName;
       if (!filePath.endsWith('.gz')) {
         const content = await fs.readFile(filePath);
         const compressed = await gzip(content, { level: this.config.archive.compressionLevel });
         const tempPath = path.join(this.config.archive.tempPath, `${fileName}.gz`);
         await fs.writeFile(tempPath, compressed);
         sourcePath = tempPath;
-        fileName = `${fileName}.gz`;
+        finalFileName = `${fileName}.gz`;
       }
-      
+
       // Move to archive
       const finalArchivePath = path.join(archiveDir, path.basename(sourcePath));
       await fs.rename(sourcePath, finalArchivePath);
-      
+
       // Clean up temp if used
       if (sourcePath !== filePath) {
         await fs.unlink(filePath).catch(() => {});
       }
-      
+
       return true;
     } catch (error) {
       console.error(`Failed to archive ${filePath}:`, error);
@@ -404,18 +405,18 @@ class DataRetentionManager {
     try {
       const backupDir = path.join(this.config.archive.archivePath, 'backups', dataType);
       await this.ensureDirectory(backupDir);
-      
+
       const fileName = path.basename(filePath);
       const backupPath = path.join(backupDir, `${fileName}.backup.${Date.now()}`);
-      
+
       await fs.copyFile(filePath, backupPath);
-      
+
       // Compress backup
       const content = await fs.readFile(backupPath);
       const compressed = await gzip(content, { level: this.config.archive.compressionLevel });
       await fs.writeFile(`${backupPath}.gz`, compressed);
       await fs.unlink(backupPath);
-      
+
       return true;
     } catch (error) {
       console.error(`Failed to backup ${filePath}:`, error);
@@ -428,7 +429,7 @@ class DataRetentionManager {
    */
   async runFullArchive() {
     console.log('\n📦 Starting full archive process...');
-    
+
     const results = {
       archived: 0,
       compressed: 0,
@@ -439,15 +440,15 @@ class DataRetentionManager {
       // Archive all data directories
       for (const dataType of Object.values(DATA_TYPES)) {
         const dataPath = this.getDataPath(dataType);
-        
+
         try {
           await fs.access(dataPath);
           const files = await fs.readdir(dataPath);
-          
+
           for (const file of files) {
             const filePath = path.join(dataPath, file);
             const stats = await fs.stat(filePath);
-            
+
             if (stats.isFile() && !file.endsWith('.gz')) {
               const archived = await this.archiveFile(filePath, dataType);
               if (archived) results.archived++;
@@ -459,9 +460,9 @@ class DataRetentionManager {
       }
 
       this.stats.lastArchive = new Date();
-      
+
       console.log(`✅ Full archive complete: ${results.archived} files archived`);
-      
+
       return {
         success: true,
         ...results
@@ -485,7 +486,7 @@ class DataRetentionManager {
       const dataLine = lines[lines.length - 1];
       const parts = dataLine.split(/\s+/);
       const availableGb = parseInt(parts[3]);
-      
+
       return availableGb >= this.config.safety.minFreeSpaceGb;
     } catch {
       // If we can't check, assume we have space
@@ -507,18 +508,18 @@ class DataRetentionManager {
     try {
       for (const dataType of Object.values(DATA_TYPES)) {
         const typeDir = path.join(this.config.archive.archivePath, dataType);
-        
+
         try {
           await fs.access(typeDir);
           const files = await fs.readdir(typeDir);
           let typeSize = 0;
-          
+
           for (const file of files) {
             const filePath = path.join(typeDir, file);
             const fileStats = await fs.stat(filePath);
             typeSize += fileStats.size;
           }
-          
+
           stats.byType[dataType] = {
             files: files.length,
             size: typeSize
@@ -543,12 +544,12 @@ class DataRetentionManager {
     try {
       const archiveDir = path.join(this.config.archive.archivePath, dataType);
       const archivePath = path.join(archiveDir, fileName);
-      
+
       // Check if compressed
       const compressedPath = `${archivePath}.gz`;
       let sourcePath = archivePath;
       let isCompressed = false;
-      
+
       try {
         await fs.access(compressedPath);
         sourcePath = compressedPath;
@@ -556,10 +557,10 @@ class DataRetentionManager {
       } catch {
         await fs.access(archivePath);
       }
-      
+
       // Determine destination
       const destPath = destinationPath || path.join(this.getDataPath(dataType), fileName);
-      
+
       if (isCompressed) {
         // Decompress
         const compressed = await fs.readFile(sourcePath);
@@ -569,7 +570,7 @@ class DataRetentionManager {
         // Copy as-is
         await fs.copyFile(sourcePath, destPath);
       }
-      
+
       return { success: true, restoredTo: destPath };
     } catch (error) {
       return { success: false, error: error.message };
@@ -603,13 +604,13 @@ class DataRetentionManager {
     try {
       const archiveDir = path.join(this.config.archive.archivePath, dataType);
       await fs.access(archiveDir);
-      
+
       const files = await fs.readdir(archiveDir);
-      
+
       for (const file of files) {
         const filePath = path.join(archiveDir, file);
         const stats = await fs.stat(filePath);
-        
+
         // Check date range
         const fileDate = stats.mtime;
         if (fileDate >= startDate && fileDate <= endDate) {

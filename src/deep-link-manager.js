@@ -428,11 +428,12 @@ class DeepLinkManager {
    */
   getPageTitle(linkData) {
     switch (linkData.type) {
-      case 'opportunity':
+      case 'opportunity': {
         const profit = linkData.data.profitPercentage;
-        return profit 
+        return profit
           ? `${profit.toFixed(2)}% Arbitrage Opportunity`
           : 'Betting Opportunity';
+      }
       case 'bet':
         return 'Bet Details';
       case 'analytics':
@@ -447,11 +448,12 @@ class DeepLinkManager {
    */
   getPageDescription(linkData) {
     switch (linkData.type) {
-      case 'opportunity':
+      case 'opportunity': {
         const { homeTeam, awayTeam } = linkData.data;
-        return homeTeam && awayTeam 
+        return homeTeam && awayTeam
           ? `${homeTeam} vs ${awayTeam} - Guaranteed profit opportunity`
           : 'Guaranteed profit betting opportunity';
+      }
       case 'bet':
         return `Bet on ${linkData.data.selection} @ ${linkData.data.odds}`;
       case 'analytics':
@@ -466,23 +468,23 @@ class DeepLinkManager {
    */
   getDetailsHtml(linkData) {
     switch (linkData.type) {
-      case 'opportunity':
+      case 'opportunity': {
         const { profitPercentage, evPercentage, homeTeam, awayTeam, type } = linkData.data;
         let html = '';
-        
+
         if (profitPercentage) {
           html += `<div class="profit">+${profitPercentage.toFixed(2)}%</div>`;
         } else if (evPercentage) {
           html += `<div class="profit">+${evPercentage.toFixed(2)}% EV</div>`;
         }
-        
+
         if (homeTeam && awayTeam) {
           html += `<div class="teams">${homeTeam} vs ${awayTeam}</div>`;
         }
-        
+
         html += `<div class="type">${type}</div>`;
         return html;
-        
+      }
       case 'bet':
         return `
           <div class="teams">${linkData.data.selection}</div>
