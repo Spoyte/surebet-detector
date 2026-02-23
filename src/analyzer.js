@@ -324,12 +324,18 @@ class OpportunityAnalyzer {
     /**
      * Check if Pinnacle odds are significantly different from consensus
      * Returns true if Pinnacle appears to have stale/bad data
+     * 
+     * NOTE: Pinnacle is a sharp bookmaker - when it differs from consensus,
+     * it often means the soft bookmakers are slow to adjust, not that Pinnacle is wrong.
+     * We use a more lenient threshold and only flag extreme deviations.
      */
     isPinnacleStale(pinnacleOdds, consensusOdds) {
         if (!consensusOdds || consensusOdds === 0) return false;
         const ratio = pinnacleOdds / consensusOdds;
-        // If Pinnacle is >1.5x or <0.67x of consensus, it may be stale
-        return ratio > this.PINNACLE_CONSENSUS_THRESHOLD || ratio < (1 / this.PINNACLE_CONSENSUS_THRESHOLD);
+        // Only flag if Pinnacle is >2.5x or <0.4x of consensus (extreme deviations)
+        // Pinnacle is sharp - trust it more than consensus of soft bookmakers
+        const extremeThreshold = 2.5;
+        return ratio > extremeThreshold || ratio < (1 / extremeThreshold);
     }
 
     /**
@@ -392,7 +398,22 @@ class OpportunityAnalyzer {
                 if (!pinnacleOutcome) continue;
 
                 // Skip EV calculation if Pinnacle has stale data for this outcome
-                if (staleOutcomes.has(i)) continue;
+                // But only for extreme deviations (>2.5x) - Pinnacle is sharp and often ahead of market
+                if (staleOutcomes.has(i)) {
+                    // Still log it but at lower severity - might be genuine market movement
+                    opportunities.suspicious.push({
+                        type: 'suspicious',
+                        event: event.eventName,
+                        sport: event.sport,
+                        outcome: outcome.name,
+                        bookmaker: bookmaker.name,
+                        odds: outcome.odds,
+                        pinnacleOdds: pinnacleOutcome.odds,
+                        ratio: parseFloat(oddsRatio.toFixed(2)),
+                        note: 'Extreme deviation from Pinnacle - possible promotion or data error (Pinnacle may be more accurate)'
+                    });
+                    continue;
+                }
 
                 const oddsRatio = outcome.odds / pinnacleOutcome.odds;
 
