@@ -292,16 +292,21 @@ class OpportunityAnalyzer {
     /**
      * Calculate median odds from all bookmakers for a given outcome
      * Filters out extreme outliers (odds > 50) which are likely data errors
+     * Uses outcome name for robust comparison across bookmakers
      */
-    calculateConsensusOdds(bookmakers, outcomeIndex) {
+    calculateConsensusOdds(bookmakers, outcomeName) {
         const odds = [];
         for (const bookmaker of bookmakers) {
             const h2h = bookmaker.markets.find(m => m.type === 'h2h');
-            if (h2h && h2h.outcomes[outcomeIndex]) {
-                const oddsValue = h2h.outcomes[outcomeIndex].odds;
-                // Filter out extreme outliers (>50) which are likely data errors
-                if (oddsValue > 1 && oddsValue <= 50) {
-                    odds.push(oddsValue);
+            if (h2h) {
+                // Find outcome by name for robust comparison
+                const outcome = h2h.outcomes.find(o => o.name === outcomeName);
+                if (outcome) {
+                    const oddsValue = outcome.odds;
+                    // Filter out extreme outliers (>50) which are likely data errors
+                    if (oddsValue > 1 && oddsValue <= 50) {
+                        odds.push(oddsValue);
+                    }
                 }
             }
         }
@@ -362,14 +367,19 @@ class OpportunityAnalyzer {
         // Calculate consensus odds for each outcome to validate Pinnacle
         const consensusOdds = [];
         for (let i = 0; i < pinnacleH2H.outcomes.length; i++) {
-            consensusOdds.push(this.calculateConsensusOdds(uniqueBookmakers, i));
+            const outcomeName = pinnacleH2H.outcomes[i].name;
+            consensusOdds.push({
+                name: outcomeName,
+                median: this.calculateConsensusOdds(uniqueBookmakers, outcomeName)
+            });
         }
 
         // Check if Pinnacle has stale data for any outcome
         const staleOutcomes = new Set();
         for (let i = 0; i < pinnacleH2H.outcomes.length; i++) {
-            if (this.isPinnacleStale(pinnacleH2H.outcomes[i].odds, consensusOdds[i])) {
-                staleOutcomes.add(i);
+            const consensusEntry = consensusOdds[i];
+            if (this.isPinnacleStale(pinnacleH2H.outcomes[i].odds, consensusEntry.median)) {
+                staleOutcomes.add(pinnacleH2H.outcomes[i].name);
                 opportunities.suspicious.push({
                     type: 'suspicious',
                     event: event.eventName,
@@ -377,8 +387,8 @@ class OpportunityAnalyzer {
                     outcome: pinnacleH2H.outcomes[i].name,
                     bookmaker: 'Pinnacle',
                     odds: pinnacleH2H.outcomes[i].odds,
-                    consensusOdds: consensusOdds[i],
-                    ratio: parseFloat((pinnacleH2H.outcomes[i].odds / consensusOdds[i]).toFixed(2)),
+                    consensusOdds: consensusEntry.median,
+                    ratio: parseFloat((pinnacleH2H.outcomes[i].odds / consensusEntry.median).toFixed(2)),
                     note: 'Pinnacle odds significantly different from consensus - possible stale data'
                 });
             }
@@ -391,9 +401,9 @@ class OpportunityAnalyzer {
             const h2h = bookmaker.markets.find(m => m.type === 'h2h');
             if (!h2h) continue;
 
-            for (let i = 0; i < h2h.outcomes.length; i++) {
-                const outcome = h2h.outcomes[i];
-                const pinnacleOutcome = pinnacleH2H.outcomes[i];
+            for (const outcome of h2h.outcomes) {
+                // Find matching outcome in Pinnacle by name for robust comparison
+                const pinnacleOutcome = pinnacleH2H.outcomes.find(o => o.name === outcome.name);
 
                 if (!pinnacleOutcome) continue;
 
@@ -401,7 +411,7 @@ class OpportunityAnalyzer {
 
                 // Skip EV calculation if Pinnacle has stale data for this outcome
                 // But only for extreme deviations (>2.5x) - Pinnacle is sharp and often ahead of market
-                if (staleOutcomes.has(i)) {
+                if (staleOutcomes.has(outcome.name)) {
                     // Still log it but at lower severity - might be genuine market movement
                     opportunities.suspicious.push({
                         type: 'suspicious',
