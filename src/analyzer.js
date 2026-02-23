@@ -83,7 +83,7 @@ class OpportunityAnalyzer {
             opportunities.arbitrage.push(...arbOpps);
 
             // Find +EV opportunities (legacy method)
-            const evOpps = this.findPositiveEV(event, opportunities);
+            this.findPositiveEV(event, opportunities);
         }
 
         // Use enhanced value betting detector
