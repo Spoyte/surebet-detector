@@ -2,6 +2,7 @@
  * Slippage Protector Tests
  */
 
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SlippageProtector, SlippageConfig, BetPlacementRequest, OddsSnapshot } from './slippage-protector.js';
 
 describe('SlippageProtector', () => {
@@ -293,7 +294,7 @@ describe('SlippageProtector', () => {
 
   describe('Execute With Protection', () => {
     it('should execute bet when no slippage', async () => {
-      const executeFn = jest.fn().mockResolvedValue(true);
+      const executeFn = vi.fn().mockResolvedValue(true);
       
       const request: BetPlacementRequest = {
         id: 'bet-exec-1',
@@ -314,7 +315,7 @@ describe('SlippageProtector', () => {
     });
 
     it('should abort on critical slippage', async () => {
-      const executeFn = jest.fn().mockResolvedValue(true);
+      const executeFn = vi.fn().mockResolvedValue(true);
       
       protector.recordOdds({
         bookmaker: 'Unibet',
@@ -343,7 +344,7 @@ describe('SlippageProtector', () => {
     });
 
     it('should pass adjusted stake to execute function', async () => {
-      const executeFn = jest.fn().mockResolvedValue(true);
+      const executeFn = vi.fn().mockResolvedValue(true);
       
       protector.recordOdds({
         bookmaker: 'Unibet',
@@ -403,7 +404,7 @@ describe('SlippageProtector', () => {
         done();
       });
       
-      const executeFn = jest.fn().mockResolvedValue(true);
+      const executeFn = vi.fn().mockResolvedValue(true);
       const request: BetPlacementRequest = {
         id: 'bet-event-2',
         opportunityId: 'opp-1',
