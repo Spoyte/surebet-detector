@@ -12,12 +12,14 @@ module.exports = {
   globals: {
     describe: 'readonly',
     test: 'readonly',
+    it: 'readonly',
     expect: 'readonly',
     beforeEach: 'readonly',
     afterEach: 'readonly',
     beforeAll: 'readonly',
     afterAll: 'readonly',
     vi: 'readonly',
+    NodeJS: 'readonly',
   },
   rules: {
     'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
@@ -27,6 +29,13 @@ module.exports = {
   },
   overrides: [
     {
+      files: ['**/*.test.js', '**/*.test.ts'],
+      globals: {
+        jest: 'readonly',
+        it: 'readonly',
+      },
+    },
+    {
       files: ['*.ts', '*.tsx'],
       parser: '@typescript-eslint/parser',
       parserOptions: {
@@ -35,9 +44,9 @@ module.exports = {
       },
     },
     {
-      files: ['*.test.js', '*.test.ts'],
-      globals: {
-        jest: 'readonly',
+      files: ['src/distributed-tracing*.js', 'src/event-sourcing*.js', 'src/saga-pattern*.js', 'src/tracing-integration.js'],
+      parserOptions: {
+        sourceType: 'module',
       },
     },
   ],

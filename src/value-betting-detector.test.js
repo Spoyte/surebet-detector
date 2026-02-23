@@ -286,16 +286,16 @@ describe('ValueBettingDetector', () => {
             if (valueBets.length > 0) {
                 const bet = valueBets[0];
                 assert.strictEqual(bet.type, 'valueBet');
-                assert.ok(bet.hasOwnProperty('event'));
-                assert.ok(bet.hasOwnProperty('sport'));
-                assert.ok(bet.hasOwnProperty('outcome'));
-                assert.ok(bet.hasOwnProperty('bookmaker'));
-                assert.ok(bet.hasOwnProperty('odds'));
-                assert.ok(bet.hasOwnProperty('trueProbability'));
-                assert.ok(bet.hasOwnProperty('evPercent'));
-                assert.ok(bet.hasOwnProperty('confidence'));
-                assert.ok(bet.hasOwnProperty('kellyStake'));
-                assert.ok(bet.hasOwnProperty('recommendation'));
+                assert.ok(Object.prototype.hasOwnProperty.call(bet, 'event'));
+                assert.ok(Object.prototype.hasOwnProperty.call(bet, 'sport'));
+                assert.ok(Object.prototype.hasOwnProperty.call(bet, 'outcome'));
+                assert.ok(Object.prototype.hasOwnProperty.call(bet, 'bookmaker'));
+                assert.ok(Object.prototype.hasOwnProperty.call(bet, 'odds'));
+                assert.ok(Object.prototype.hasOwnProperty.call(bet, 'trueProbability'));
+                assert.ok(Object.prototype.hasOwnProperty.call(bet, 'evPercent'));
+                assert.ok(Object.prototype.hasOwnProperty.call(bet, 'confidence'));
+                assert.ok(Object.prototype.hasOwnProperty.call(bet, 'kellyStake'));
+                assert.ok(Object.prototype.hasOwnProperty.call(bet, 'recommendation'));
             }
         });
     });
@@ -349,10 +349,10 @@ describe('ValueBettingDetector', () => {
         
         it('should categorize value bets by confidence', () => {
             const results = detector.detectValueBets(mockOddsData);
-            assert.ok(results.hasOwnProperty('highConfidence'));
-            assert.ok(results.hasOwnProperty('mediumConfidence'));
-            assert.ok(results.hasOwnProperty('lowConfidence'));
-            assert.ok(results.hasOwnProperty('analysis'));
+            assert.ok(Object.prototype.hasOwnProperty.call(results, 'highConfidence'));
+            assert.ok(Object.prototype.hasOwnProperty.call(results, 'mediumConfidence'));
+            assert.ok(Object.prototype.hasOwnProperty.call(results, 'lowConfidence'));
+            assert.ok(Object.prototype.hasOwnProperty.call(results, 'analysis'));
         });
     });
 });

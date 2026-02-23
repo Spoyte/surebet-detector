@@ -251,7 +251,7 @@ export function createEventStoreRoutes(eventSourcingPlugin) {
     try {
       const { eventTypes } = req.body;
       
-      const count = await auditAPI.replayEvents(eventTypes);
+      const count = await auditAPI.replayEvents(eventTypes); // eslint-disable-line no-undef
       
       res.json({
         success: true,

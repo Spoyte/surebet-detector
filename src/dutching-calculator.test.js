@@ -122,9 +122,9 @@ describe('DutchingCalculator', () => {
             
             const result = calculator.calculateWeightedDutch(outcomes, 100);
             
-            assert.ok(result.hasOwnProperty('minProfit'));
-            assert.ok(result.hasOwnProperty('maxProfit'));
-            assert.ok(result.hasOwnProperty('profitRange'));
+            assert.ok(Object.prototype.hasOwnProperty.call(result, 'minProfit'));
+            assert.ok(Object.prototype.hasOwnProperty.call(result, 'maxProfit'));
+            assert.ok(Object.prototype.hasOwnProperty.call(result, 'profitRange'));
         });
     });
     
