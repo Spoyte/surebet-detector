@@ -25,4 +25,20 @@ module.exports = {
     'prefer-const': 'warn',
     'no-var': 'warn',
   },
+  overrides: [
+    {
+      files: ['*.ts', '*.tsx'],
+      parser: '@typescript-eslint/parser',
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+      },
+    },
+    {
+      files: ['*.test.js', '*.test.ts'],
+      globals: {
+        jest: 'readonly',
+      },
+    },
+  ],
 };
