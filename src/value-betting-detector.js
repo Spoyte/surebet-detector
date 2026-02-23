@@ -58,7 +58,8 @@ class ValueBettingDetector {
             oddsFreshnessHours: config.oddsFreshnessHours || 24,
             
             // Minimum sample size of sharp bookmakers required
-            minSharpSampleSize: config.minSharpSampleSize || 2,
+            // Note: Pinnacle alone is considered sufficient as it's the sharpest bookmaker
+            minSharpSampleSize: config.minSharpSampleSize || 1,
             
             // Maximum acceptable deviation from consensus (filters outliers)
             maxConsensusDeviation: config.maxConsensusDeviation || 0.15,
@@ -374,12 +375,14 @@ class ValueBettingDetector {
      */
     calculateProbabilityConfidence(sampleSize, variance) {
         // Base confidence from sample size (diminishing returns after 5+ sources)
-        const sampleConfidence = Math.min(0.3 + (sampleSize * 0.15), 0.6);
+        // Special case: Pinnacle alone gets higher base confidence (0.6) as it's the sharpest bookmaker
+        const baseConfidence = sampleSize === 1 ? 0.6 : 0.3;
+        const sampleConfidence = Math.min(baseConfidence + (sampleSize * 0.12), 0.75);
         
         // Variance penalty (lower variance = higher confidence)
-        const variancePenalty = Math.min(variance * 2, 0.3);
+        const variancePenalty = Math.min(variance * 2, 0.25);
         
-        return Math.max(0.5, sampleConfidence - variancePenalty);
+        return Math.max(0.55, sampleConfidence - variancePenalty);
     }
     
     /**

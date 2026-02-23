@@ -127,6 +127,10 @@ async function main() {
     console.log('📡 Fetching latest odds data...\n');
     const data = await fetcher.fetchAll();
 
+    // Initialize analyzer (needed for value betting detector and other components)
+    console.log('⚙️  Initializing analyzer...');
+    await analyzer.init();
+
     // Analyze opportunities
     console.log('\n🔍 Analyzing opportunities...\n');
     const opportunities = analyzer.analyze(data);

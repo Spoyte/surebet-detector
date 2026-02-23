@@ -25,7 +25,7 @@ class OpportunityAnalyzer {
         this.valueBettingDetector = new ValueBettingDetector({
             dataDir: config.DATA_DIR,
             minEVThreshold: parseFloat(config.VALUE_BET_MIN_EV) || 2.0,
-            minConfidence: parseFloat(config.VALUE_BET_MIN_CONFIDENCE) || 0.7,
+            minConfidence: parseFloat(config.VALUE_BET_MIN_CONFIDENCE) || 0.6,
             kellyFraction: parseFloat(config.VALUE_BET_KELLY_FRACTION) || 0.25
         });
         this.oddsLineShopper = new OddsLineShopper({
@@ -397,6 +397,8 @@ class OpportunityAnalyzer {
 
                 if (!pinnacleOutcome) continue;
 
+                const oddsRatio = outcome.odds / pinnacleOutcome.odds;
+
                 // Skip EV calculation if Pinnacle has stale data for this outcome
                 // But only for extreme deviations (>2.5x) - Pinnacle is sharp and often ahead of market
                 if (staleOutcomes.has(i)) {
@@ -414,8 +416,6 @@ class OpportunityAnalyzer {
                     });
                     continue;
                 }
-
-                const oddsRatio = outcome.odds / pinnacleOutcome.odds;
 
                 // Flag suspicious odds (likely promotions or data errors)
                 if (oddsRatio > this.SUSPICIOUS_ODDS_RATIO) {
