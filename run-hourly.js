@@ -12,6 +12,48 @@ function formatDate(date) {
     return date.toISOString().replace(/[:.]/g, '-').slice(0, 19);
 }
 
+/**
+ * Clean up old hourly report files, keeping only the most recent N reports
+ */
+async function cleanupOldReports(maxReports = 48) {
+    try {
+        const files = await fs.readdir(__dirname);
+        const reportFiles = files
+            .filter(f => f.startsWith('HOURLY_REPORT_') && f.endsWith('.md'))
+            .map(f => ({
+                name: f,
+                path: path.join(__dirname, f),
+                time: fs.stat(path.join(__dirname, f)).then(s => s.mtime)
+            }));
+
+        // Wait for all stat calls
+        const reportsWithTime = await Promise.all(
+            reportFiles.map(async r => ({
+                name: r.name,
+                path: r.path,
+                time: await r.time
+            }))
+        );
+
+        // Sort by modification time (newest first)
+        reportsWithTime.sort((a, b) => b.time - a.time);
+
+        // Delete old reports
+        if (reportsWithTime.length > maxReports) {
+            const toDelete = reportsWithTime.slice(maxReports);
+            for (const report of toDelete) {
+                await fs.unlink(report.path);
+                console.log(`🗑️  Cleaned up old report: ${report.name}`);
+            }
+            return toDelete.length;
+        }
+        return 0;
+    } catch (e) {
+        console.error('Report cleanup error:', e.message);
+        return 0;
+    }
+}
+
 function generateMarkdownReport(opportunities, data) {
     const now = new Date();
     const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
@@ -222,6 +264,12 @@ async function main() {
     console.log('\n✅ Hourly update complete');
     console.log(`Analysis saved to: ${analysisFile}`);
     console.log(`ReportFile: ${reportFile}`);
+
+    // Clean up old reports (keep last 48 = ~2 days of hourly reports)
+    const cleaned = await cleanupOldReports(48);
+    if (cleaned > 0) {
+        console.log(`Cleaned up ${cleaned} old report(s)`);
+    }
 }
 
 main().catch(err => {
