@@ -27,6 +27,6 @@ export default defineConfig({
     }
   },
   css: {
-    postcss: null
+    postcss: {}
   }
 });
