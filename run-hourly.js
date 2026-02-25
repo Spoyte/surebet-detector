@@ -58,15 +58,19 @@ function generateMarkdownReport(opportunities, data, apiStatus = {}) {
     const now = new Date();
     const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
     const timestamp = beijingTime.toISOString().slice(0, 16).replace('T', ' ');
+    const reportId = `HOURLY_REPORT_${beijingTime.toISOString().slice(0, 10)}_${beijingTime.getHours().toString().padStart(2, '0')}${beijingTime.getMinutes().toString().padStart(2, '0')}`;
     
     // Determine API status indicators
     const oddsApiStatus = apiStatus.oddsApi > 0 ? '✅' : '❌';
     const polymarketStatus = apiStatus.polymarket > 0 ? '✅' : '❌';
     const forexStatus = opportunities.forex?.USD_EUR ? '✅' : '❌';
     
+    // Check for critical API issues
+    const hasOddsApiIssue = apiStatus.oddsApi === 0;
+    
     let md = `# Surebet Detector - Hourly Report
 **Time:** ${timestamp} (Asia/Shanghai)  
-**Report ID:** HOURLY_REPORT_${beijingTime.toISOString().slice(0, 10)}_${beijingTime.getHours().toString().padStart(2, '0')}${beijingTime.getMinutes().toString().padStart(2, '0')}
+**Report ID:** ${reportId}
 
 ---
 
@@ -90,7 +94,27 @@ function generateMarkdownReport(opportunities, data, apiStatus = {}) {
 | **Forex API** | ${forexStatus} | USD/EUR rate active |
 
 ---
-`;;
+`;
+
+    // Add API alert section if there are issues
+    if (hasOddsApiIssue) {
+        md += `\n## ⚠️ API Alert
+
+**Odds API is not returning data.**
+
+Possible causes:
+- API key quota exhausted
+- API key invalid or expired
+- Service outage
+
+**Action Required:**
+1. Check API key at https://the-odds-api.com/
+2. Renew or generate a new key if needed
+3. Update \`config/.env\` with the new key
+
+---
+`;
+    };
 
     if (opportunities.arbitrage.length > 0) {
         md += `\n## 🎯 Arbitrage Opportunities\n`;
@@ -238,14 +262,26 @@ async function main() {
     }
 
     // Send Telegram notification if high-value opportunities found
+    // OR if there are API issues that need attention
     if (config.TELEGRAM_BOT_TOKEN && config.TELEGRAM_CHAT_ID) {
         const axios = require('axios');
         
         const highValueArbs = opportunities.arbitrage.filter(a => a.profitPercent >= 1);
         const highValueEV = opportunities.positiveEV.filter(e => e.evPercent >= config.MIN_EV_THRESHOLD);
         
-        if (highValueArbs.length > 0 || highValueEV.length > 0) {
+        // Check for API issues
+        const hasOddsApiIssue = apiStatus.oddsApi === 0;
+        const hasCriticalIssue = hasOddsApiIssue && data.oddsData.length === 0;
+        
+        if (highValueArbs.length > 0 || highValueEV.length > 0 || hasCriticalIssue) {
             let message = '🎯 *Surebet Detector Update*\n\n';
+            
+            if (hasCriticalIssue) {
+                message += '⚠️ *API Alert*\n\n';
+                message += '❌ Odds API returned 0 events\n';
+                message += 'Likely cause: API key quota exhausted or invalid\n';
+                message += 'Action needed: Renew API key at https://the-odds-api.com/\n\n';
+            }
             
             if (highValueArbs.length > 0) {
                 message += `*${highValueArbs.length} Arbitrage Opportunities*\n\n`;
