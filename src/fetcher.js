@@ -9,6 +9,11 @@ class OddsFetcher {
     constructor(config) {
         this.config = config;
         this.cacheDir = path.join(__dirname, '../data/cache');
+        this.apiStatus = {
+            oddsApi: { healthy: true, lastError: null, errorCount: 0 },
+            polymarket: { healthy: true, lastError: null, errorCount: 0 },
+            forex: { healthy: true, lastError: null, errorCount: 0 }
+        };
         this.ensureCacheDir();
     }
 
@@ -76,16 +81,40 @@ class OddsFetcher {
             const remaining = response.headers['x-requests-remaining'];
             const used = response.headers['x-requests-used'];
             console.log(`Odds API: ${used} used, ${remaining} remaining`);
+            
+            // Update API status on success
+            this.apiStatus.oddsApi = { healthy: true, lastError: null, errorCount: 0 };
 
             return this.normalizeOddsAPIData(response.data, sport);
         } catch (error) {
             const status = error.response?.status;
             const errorData = error.response?.data;
+            const errorCode = errorData?.error_code;
+            
+            // Track API status on error
+            this.apiStatus.oddsApi.healthy = false;
+            this.apiStatus.oddsApi.lastError = {
+                status,
+                errorCode,
+                message: errorData?.message || error.message,
+                timestamp: new Date().toISOString()
+            };
+            this.apiStatus.oddsApi.errorCount++;
             
             if (status === 401) {
-                console.error('❌ Odds API error: API key invalid or expired (401)');
-                console.error('   Please check your ODDS_API_KEY in config/.env');
-                console.error('   Get a new key at: https://the-odds-api.com/');
+                // Check for specific quota exhaustion error
+                if (errorCode === 'OUT_OF_USAGE_CREDITS' || 
+                    errorData?.message?.includes('quota') ||
+                    errorData?.message?.includes('Usage quota')) {
+                    console.error('❌ Odds API error: Usage quota exhausted (401)');
+                    console.error('   Your API key has reached its monthly request limit.');
+                    console.error('   Error code:', errorCode || 'OUT_OF_USAGE_CREDITS');
+                    console.error('   Get a new key or upgrade at: https://the-odds-api.com/');
+                } else {
+                    console.error('❌ Odds API error: API key invalid or expired (401)');
+                    console.error('   Please check your ODDS_API_KEY in config/.env');
+                    console.error('   Get a new key at: https://the-odds-api.com/');
+                }
             } else if (status === 429) {
                 console.error('❌ Odds API error: Rate limit exceeded (429)');
                 console.error('   Consider upgrading your plan or reducing request frequency');
@@ -142,9 +171,22 @@ class OddsFetcher {
             });
 
             console.log(`✅ Polymarket: ${response.data.length} markets fetched`);
+            
+            // Update API status on success
+            this.apiStatus.polymarket = { healthy: true, lastError: null, errorCount: 0 };
+            
             return this.normalizePolymarketData(response.data);
         } catch (error) {
             const status = error.response?.status;
+            
+            // Track API status on error
+            this.apiStatus.polymarket.healthy = false;
+            this.apiStatus.polymarket.lastError = {
+                status,
+                message: error.message,
+                timestamp: new Date().toISOString()
+            };
+            this.apiStatus.polymarket.errorCount++;
             
             if (status === 429) {
                 console.error('❌ Polymarket error: Rate limit exceeded (429)');
@@ -190,6 +232,9 @@ class OddsFetcher {
             
             // If using exchangerate-api
             if (response.data.rates && response.data.rates.EUR) {
+                // Update API status on success
+                this.apiStatus.forex = { healthy: true, lastError: null, errorCount: 0 };
+                
                 return {
                     USD_EUR: response.data.rates.EUR,
                     EUR_USD: 1 / response.data.rates.EUR,
@@ -205,6 +250,14 @@ class OddsFetcher {
                 note: 'Using fallback rate'
             };
         } catch (error) {
+            // Track API status on error
+            this.apiStatus.forex.healthy = false;
+            this.apiStatus.forex.lastError = {
+                message: error.message,
+                timestamp: new Date().toISOString()
+            };
+            this.apiStatus.forex.errorCount++;
+            
             console.error('Forex error:', error.message);
             return {
                 USD_EUR: 0.92,
@@ -400,7 +453,8 @@ class OddsFetcher {
             timestamp,
             forex,
             oddsData: allOddsData,
-            polymarketData
+            polymarketData,
+            apiStatus: this.apiStatus
         };
 
         const cacheFile = path.join(this.cacheDir, `data_${Date.now()}.json`);
