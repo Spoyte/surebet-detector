@@ -54,10 +54,15 @@ async function cleanupOldReports(maxReports = 48) {
     }
 }
 
-function generateMarkdownReport(opportunities, data) {
+function generateMarkdownReport(opportunities, data, apiStatus = {}) {
     const now = new Date();
     const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
     const timestamp = beijingTime.toISOString().slice(0, 16).replace('T', ' ');
+    
+    // Determine API status indicators
+    const oddsApiStatus = apiStatus.oddsApi > 0 ? '✅' : '❌';
+    const polymarketStatus = apiStatus.polymarket > 0 ? '✅' : '❌';
+    const forexStatus = opportunities.forex?.USD_EUR ? '✅' : '❌';
     
     let md = `# Surebet Detector - Hourly Report
 **Time:** ${timestamp} (Asia/Shanghai)  
@@ -75,7 +80,17 @@ function generateMarkdownReport(opportunities, data) {
 | **Forex Rate** | 1 USD = ${opportunities.forex.USD_EUR} EUR |
 
 ---
-`;
+
+## 🔌 API Status
+
+| Service | Status | Details |
+|---------|--------|---------|
+| **Odds API** | ${oddsApiStatus} | ${apiStatus.oddsApi || 0} events fetched |
+| **Polymarket** | ${polymarketStatus} | ${apiStatus.polymarket || 0} markets fetched |
+| **Forex API** | ${forexStatus} | USD/EUR rate active |
+
+---
+`;;
 
     if (opportunities.arbitrage.length > 0) {
         md += `\n## 🎯 Arbitrage Opportunities\n`;
@@ -178,12 +193,18 @@ async function main() {
     console.log('\n🔍 Analyzing opportunities...\n');
     const opportunities = analyzer.analyze(data);
 
+    // Track API status for report
+    const apiStatus = {
+        oddsApi: data.oddsData?.length || 0,
+        polymarket: data.polymarketData?.length || 0
+    };
+
     // Save analysis
     const analysisFile = path.join(__dirname, 'data/cache/latest_analysis.json');
     await fs.writeFile(analysisFile, JSON.stringify(opportunities, null, 2));
 
-    // Generate markdown report
-    const reportMd = generateMarkdownReport(opportunities, data);
+    // Generate markdown report with API status
+    const reportMd = generateMarkdownReport(opportunities, data, apiStatus);
     const beijingTime = new Date(Date.now() + (8 * 60 * 60 * 1000));
     const reportId = `HOURLY_REPORT_${beijingTime.toISOString().slice(0, 10)}_${beijingTime.getHours().toString().padStart(2, '0')}${beijingTime.getMinutes().toString().padStart(2, '0')}`;
     const reportFile = path.join(__dirname, `${reportId}.md`);

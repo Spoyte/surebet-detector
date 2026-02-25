@@ -79,8 +79,50 @@ class OddsFetcher {
 
             return this.normalizeOddsAPIData(response.data, sport);
         } catch (error) {
-            console.error('Odds API error:', error.message);
+            const status = error.response?.status;
+            const errorData = error.response?.data;
+            
+            if (status === 401) {
+                console.error('❌ Odds API error: API key invalid or expired (401)');
+                console.error('   Please check your ODDS_API_KEY in config/.env');
+                console.error('   Get a new key at: https://the-odds-api.com/');
+            } else if (status === 429) {
+                console.error('❌ Odds API error: Rate limit exceeded (429)');
+                console.error('   Consider upgrading your plan or reducing request frequency');
+            } else if (status === 422) {
+                console.error('❌ Odds API error: Invalid parameters (422)');
+                console.error('   Error details:', errorData?.message || 'Unknown');
+            } else {
+                console.error('❌ Odds API error:', error.message);
+            }
+            
+            // Return cached data if available
+            const cached = await this.getCachedOddsData(sport);
+            if (cached) {
+                console.log(`   Using cached data for ${sport} (${cached.length} events)`);
+                return cached;
+            }
+            
             return [];
+        }
+    }
+
+    /**
+     * Get cached odds data for a sport (fallback when API fails)
+     */
+    async getCachedOddsData(sport) {
+        try {
+            const latestFile = path.join(this.cacheDir, 'latest.json');
+            const data = await fs.readFile(latestFile, 'utf8');
+            const parsed = JSON.parse(data);
+            
+            // Filter for the requested sport
+            if (parsed.oddsData) {
+                return parsed.oddsData.filter(event => event.sport === sport);
+            }
+            return null;
+        } catch (e) {
+            return null;
         }
     }
 
@@ -99,10 +141,41 @@ class OddsFetcher {
                 }
             });
 
+            console.log(`✅ Polymarket: ${response.data.length} markets fetched`);
             return this.normalizePolymarketData(response.data);
         } catch (error) {
-            console.error('Polymarket error:', error.message);
+            const status = error.response?.status;
+            
+            if (status === 429) {
+                console.error('❌ Polymarket error: Rate limit exceeded (429)');
+            } else if (status >= 500) {
+                console.error('❌ Polymarket error: Server error (' + status + ')');
+            } else {
+                console.error('❌ Polymarket error:', error.message);
+            }
+            
+            // Return cached Polymarket data if available
+            const cached = await this.getCachedPolymarketData();
+            if (cached) {
+                console.log(`   Using cached Polymarket data (${cached.length} markets)`);
+                return cached;
+            }
+            
             return [];
+        }
+    }
+
+    /**
+     * Get cached Polymarket data (fallback when API fails)
+     */
+    async getCachedPolymarketData() {
+        try {
+            const latestFile = path.join(this.cacheDir, 'latest.json');
+            const data = await fs.readFile(latestFile, 'utf8');
+            const parsed = JSON.parse(data);
+            return parsed.polymarketData || null;
+        } catch (e) {
+            return null;
         }
     }
 
