@@ -178,22 +178,29 @@ class OddsFetcher {
             return this.normalizePolymarketData(response.data);
         } catch (error) {
             const status = error.response?.status;
-            
+            const errorMessage = error.message || 'Unknown error';
+            const errorCode = error.code || 'NO_CODE';
+
             // Track API status on error
             this.apiStatus.polymarket.healthy = false;
             this.apiStatus.polymarket.lastError = {
                 status,
-                message: error.message,
+                message: errorMessage,
+                code: errorCode,
                 timestamp: new Date().toISOString()
             };
             this.apiStatus.polymarket.errorCount++;
-            
+
             if (status === 429) {
                 console.error('❌ Polymarket error: Rate limit exceeded (429)');
             } else if (status >= 500) {
                 console.error('❌ Polymarket error: Server error (' + status + ')');
+            } else if (error.code === 'ECONNABORTED') {
+                console.error('❌ Polymarket error: Request timeout (30s exceeded)');
+            } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+                console.error('❌ Polymarket error: Network/DNS error -', errorMessage);
             } else {
-                console.error('❌ Polymarket error:', error.message);
+                console.error('❌ Polymarket error:', errorMessage, status ? `(HTTP ${status})` : '');
             }
             
             // Return cached Polymarket data if available

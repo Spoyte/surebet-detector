@@ -357,7 +357,16 @@ async function main() {
                 });
                 console.log('✅ Telegram notification sent');
             } catch (error) {
-                const errorMsg = error.response?.data?.description || error.message || 'Unknown error';
+                let errorMsg = 'Unknown error';
+                if (error.response?.data?.description) {
+                    errorMsg = error.response.data.description;
+                } else if (error.response?.data?.error_description) {
+                    errorMsg = error.response.data.error_description;
+                } else if (error.message) {
+                    errorMsg = error.message;
+                } else if (typeof error === 'string') {
+                    errorMsg = error;
+                }
                 console.error('❌ Telegram notification failed:', errorMsg);
             }
         } else {
