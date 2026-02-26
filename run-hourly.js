@@ -54,7 +54,41 @@ async function cleanupOldReports(maxReports = 48) {
     }
 }
 
-function generateMarkdownReport(opportunities, data, apiStatus = {}) {
+async function getLastSuccessfulOddsApiFetch() {
+    try {
+        const cacheDir = path.join(__dirname, 'data/cache');
+        const files = await fs.readdir(cacheDir);
+        const dataFiles = files
+            .filter(f => f.startsWith('data_') && f.endsWith('.json'))
+            .map(f => ({
+                name: f,
+                time: parseInt(f.match(/data_(\d+)\.json/)?.[1] || 0)
+            }))
+            .filter(f => f.time > 0)
+            .sort((a, b) => b.time - a.time);
+
+        for (const file of dataFiles.slice(0, 5)) { // Check 5 most recent files
+            const filePath = path.join(cacheDir, file.name);
+            const content = await fs.readFile(filePath, 'utf8');
+            const data = JSON.parse(content);
+            if (data.oddsData && data.oddsData.length > 0) {
+                return new Date(file.time);
+            }
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function formatDuration(ms) {
+    const hours = Math.floor(ms / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days} day${days > 1 ? 's' : ''}`;
+    return `${hours} hour${hours !== 1 ? 's' : ''}`;
+}
+
+async function generateMarkdownReport(opportunities, data, apiStatus = {}) {
     const now = new Date();
     const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
     const timestamp = beijingTime.toISOString().slice(0, 16).replace('T', ' ');
@@ -67,6 +101,10 @@ function generateMarkdownReport(opportunities, data, apiStatus = {}) {
     
     // Check for critical API issues
     const hasOddsApiIssue = apiStatus.oddsApi === 0;
+    
+    // Get last successful fetch time
+    const lastSuccessfulFetch = await getLastSuccessfulOddsApiFetch();
+    const dataAge = lastSuccessfulFetch ? formatDuration(Date.now() - lastSuccessfulFetch.getTime()) : 'unknown';
     
     let md = `# Surebet Detector - Hourly Report
 **Time:** ${timestamp} (Asia/Shanghai)  
@@ -100,9 +138,11 @@ function generateMarkdownReport(opportunities, data, apiStatus = {}) {
     if (hasOddsApiIssue) {
         md += `\n## ⚠️ API Alert
 
-**Odds API is not returning data.**
-
-Possible causes:
+**Odds API is not returning data.**\n`;
+        if (lastSuccessfulFetch) {
+            md += `\n*Last successful fetch: ${lastSuccessfulFetch.toISOString().slice(0, 16).replace('T', ' ')} UTC (${dataAge} ago)*\n`;
+        }
+        md += `\nPossible causes:
 - API key quota exhausted
 - API key invalid or expired
 - Service outage
@@ -228,7 +268,7 @@ async function main() {
     await fs.writeFile(analysisFile, JSON.stringify(opportunities, null, 2));
 
     // Generate markdown report with API status
-    const reportMd = generateMarkdownReport(opportunities, data, apiStatus);
+    const reportMd = await generateMarkdownReport(opportunities, data, apiStatus);
     const beijingTime = new Date(Date.now() + (8 * 60 * 60 * 1000));
     const reportId = `HOURLY_REPORT_${beijingTime.toISOString().slice(0, 10)}_${beijingTime.getHours().toString().padStart(2, '0')}${beijingTime.getMinutes().toString().padStart(2, '0')}`;
     const reportFile = path.join(__dirname, `${reportId}.md`);
