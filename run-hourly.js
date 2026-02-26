@@ -67,12 +67,18 @@ async function getLastSuccessfulOddsApiFetch() {
             .filter(f => f.time > 0)
             .sort((a, b) => b.time - a.time);
 
-        for (const file of dataFiles.slice(0, 5)) { // Check 5 most recent files
+        for (const file of dataFiles.slice(0, 10)) { // Check 10 most recent files for better history
             const filePath = path.join(cacheDir, file.name);
-            const content = await fs.readFile(filePath, 'utf8');
-            const data = JSON.parse(content);
-            if (data.oddsData && data.oddsData.length > 0) {
-                return new Date(file.time);
+            try {
+                const content = await fs.readFile(filePath, 'utf8');
+                const data = JSON.parse(content);
+                // Check for actual odds data with events from Odds API
+                if (data.oddsData && data.oddsData.length > 0) {
+                    return new Date(file.time);
+                }
+            } catch (readErr) {
+                // Skip corrupted files
+                continue;
             }
         }
         return null;
