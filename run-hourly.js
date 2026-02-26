@@ -376,8 +376,9 @@ const TelegramNotifier = {
     } catch (error) {
       const errorMsg = error.response?.data?.description || 
                        error.response?.data?.error_description || 
+                       error.response?.data?.message ||
                        error.message || 
-                       'Unknown error';
+                       JSON.stringify(error.response?.data || error);
       return { sent: false, error: errorMsg };
     }
   }
@@ -509,6 +510,11 @@ async function main() {
 
   // Send notification if needed
   const notificationMessage = NotificationBuilder.build(opportunities, config, report.hasCriticalIssue);
+  
+  if (report.hasCriticalIssue && notificationMessage) {
+    console.log('🚨 Critical API issue detected - sending alert notification...');
+  }
+  
   const notificationResult = notificationMessage 
     ? await TelegramNotifier.send(notificationMessage, config)
     : null;
