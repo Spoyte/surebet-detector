@@ -49,7 +49,10 @@ const Time = {
     const beijing = Time.toBeijing(date);
     const hours = beijing.getHours().toString().padStart(2, '0');
     const minutes = beijing.getMinutes().toString().padStart(2, '0');
-    return `${CONFIG.reportPrefix}${beijing.toISOString().slice(0, 10)}_${hours}${minutes}`;
+    const year = beijing.getFullYear();
+    const month = (beijing.getMonth() + 1).toString().padStart(2, '0');
+    const day = beijing.getDate().toString().padStart(2, '0');
+    return `${CONFIG.reportPrefix}${year}-${month}-${day}_${hours}${minutes}`;
   }
 };
 
