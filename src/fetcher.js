@@ -26,6 +26,37 @@ class OddsFetcher {
     }
 
     /**
+     * Persist API status to disk for cross-run tracking
+     */
+    async persistApiStatus() {
+        try {
+            const statusFile = path.join(this.cacheDir, 'api-status.json');
+            await fs.writeFile(statusFile, JSON.stringify({
+                ...this.apiStatus,
+                lastUpdated: new Date().toISOString()
+            }, null, 2));
+        } catch (e) {
+            // Silently fail - not critical
+        }
+    }
+
+    /**
+     * Load persisted API status
+     */
+    async loadPersistedApiStatus() {
+        try {
+            const statusFile = path.join(this.cacheDir, 'api-status.json');
+            const data = await fs.readFile(statusFile, 'utf8');
+            const parsed = JSON.parse(data);
+            if (parsed.oddsApi) this.apiStatus.oddsApi = parsed.oddsApi;
+            if (parsed.polymarket) this.apiStatus.polymarket = parsed.polymarket;
+            if (parsed.forex) this.apiStatus.forex = parsed.forex;
+        } catch (e) {
+            // No persisted status yet
+        }
+    }
+
+    /**
      * Clean up old cache files, keeping only the most recent N files
      */
     async cleanupCache(maxFiles = 10) {
@@ -84,6 +115,7 @@ class OddsFetcher {
             
             // Update API status on success
             this.apiStatus.oddsApi = { healthy: true, lastError: null, errorCount: 0 };
+            await this.persistApiStatus();
 
             return this.normalizeOddsAPIData(response.data, sport);
         } catch (error) {
@@ -129,9 +161,13 @@ class OddsFetcher {
             const cached = await this.getCachedOddsData(sport);
             if (cached) {
                 console.log(`   Using cached data for ${sport} (${cached.length} events)`);
+                // Persist status after using cache
+                await this.persistApiStatus();
                 return cached;
             }
             
+            // Persist status before returning empty
+            await this.persistApiStatus();
             return [];
         }
     }
