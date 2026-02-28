@@ -27,7 +27,8 @@ const CONFIG = {
   reportPrefix: 'HOURLY_REPORT_',
   cacheDir: path.join(__dirname, 'data/cache'),
   minProfitThreshold: 1.0,
-  telegramTimeout: 10000,
+  telegramTimeout: 15000, // Increased from 10s to 15s for better reliability
+  maxRetries: 2,
 };
 
 // ============================================================================
@@ -360,7 +361,7 @@ const NotificationBuilder = {
 // ============================================================================
 
 const TelegramNotifier = {
-  async send(message, config) {
+  async send(message, config, attempt = 1) {
     if (!config.TELEGRAM_BOT_TOKEN || !config.TELEGRAM_CHAT_ID) {
       return { sent: false, reason: 'not_configured' };
     }
@@ -377,6 +378,13 @@ const TelegramNotifier = {
       );
       return { sent: true };
     } catch (error) {
+      // Retry on timeout or network errors
+      if (attempt < CONFIG.maxRetries && (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET' || error.code === 'ENOTFOUND')) {
+        console.log(`Telegram notification failed (attempt ${attempt}), retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Exponential backoff
+        return TelegramNotifier.send(message, config, attempt + 1);
+      }
+      
       const errorMsg = error.response?.data?.description || 
                        error.response?.data?.error_description || 
                        error.response?.data?.message ||
