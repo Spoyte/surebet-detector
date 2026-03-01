@@ -255,6 +255,10 @@ class OpportunityAnalyzer {
                     ]
                 });
             }
+        } else if (outcomes.length === 3) {
+            // For 3-outcome markets (soccer: home, draw, away)
+            const arb3 = this.findThreeWayArbitrage(event, h2hMarkets);
+            if (arb3) opportunities.push(arb3);
         }
 
         return opportunities;
@@ -280,6 +284,110 @@ class OpportunityAnalyzer {
             totalStake,
             guaranteedProfit: Math.round(profit1 * 100) / 100
         };
+    }
+
+    /**
+     * Calculate optimal stakes for 3-way arbitrage (home, draw, away)
+     */
+    calculateThreeWayStakes(odds1, odds2, odds3, totalStake) {
+        const implied1 = 1 / odds1;
+        const implied2 = 1 / odds2;
+        const implied3 = 1 / odds3;
+        const totalImplied = implied1 + implied2 + implied3;
+
+        const stake1 = (totalStake * implied1) / totalImplied;
+        const stake2 = (totalStake * implied2) / totalImplied;
+        const stake3 = (totalStake * implied3) / totalImplied;
+
+        const profit = (stake1 * odds1) - totalStake;
+
+        return {
+            stake1: Math.round(stake1 * 100) / 100,
+            stake2: Math.round(stake2 * 100) / 100,
+            stake3: Math.round(stake3 * 100) / 100,
+            totalStake,
+            guaranteedProfit: Math.round(profit * 100) / 100
+        };
+    }
+
+    /**
+     * Find 3-way arbitrage opportunities (soccer: home, draw, away)
+     */
+    findThreeWayArbitrage(event, h2hMarkets) {
+        // Find best odds for each outcome across bookmakers
+        // outcomes[0] = home, outcomes[1] = away, outcomes[2] = draw (or similar)
+        let bestOutcome1 = { odds: 0, bookmaker: '', name: '' };
+        let bestOutcome2 = { odds: 0, bookmaker: '', name: '' };
+        let bestOutcome3 = { odds: 0, bookmaker: '', name: '' };
+
+        for (const market of h2hMarkets) {
+            // Outcome 1 (typically home team)
+            if (market.outcomes[0].odds > bestOutcome1.odds) {
+                bestOutcome1 = {
+                    odds: market.outcomes[0].odds,
+                    bookmaker: market.bookmaker,
+                    name: market.outcomes[0].name
+                };
+            }
+            // Outcome 2 (typically away team)
+            if (market.outcomes[1].odds > bestOutcome2.odds) {
+                bestOutcome2 = {
+                    odds: market.outcomes[1].odds,
+                    bookmaker: market.bookmaker,
+                    name: market.outcomes[1].name
+                };
+            }
+            // Outcome 3 (typically draw, if exists)
+            if (market.outcomes[2] && market.outcomes[2].odds > bestOutcome3.odds) {
+                bestOutcome3 = {
+                    odds: market.outcomes[2].odds,
+                    bookmaker: market.bookmaker,
+                    name: market.outcomes[2].name
+                };
+            }
+        }
+
+        // Calculate arbitrage
+        const impliedProb1 = 1 / bestOutcome1.odds;
+        const impliedProb2 = 1 / bestOutcome2.odds;
+        const impliedProb3 = 1 / bestOutcome3.odds;
+        const totalImpliedProb = impliedProb1 + impliedProb2 + impliedProb3;
+
+        if (totalImpliedProb < 1) {
+            const profitPercent = (1 - totalImpliedProb) * 100;
+            const stakes = this.calculateThreeWayStakes(bestOutcome1.odds, bestOutcome2.odds, bestOutcome3.odds, 100);
+            
+            return {
+                type: 'arbitrage',
+                event: event.eventName,
+                sport: event.sport,
+                commenceTime: event.commenceTime,
+                profitPercent: parseFloat(profitPercent.toFixed(2)),
+                stakes: stakes,
+                legs: [
+                    {
+                        outcome: bestOutcome1.name,
+                        bookmaker: bestOutcome1.bookmaker,
+                        odds: bestOutcome1.odds,
+                        stake: stakes.stake1
+                    },
+                    {
+                        outcome: bestOutcome2.name,
+                        bookmaker: bestOutcome2.bookmaker,
+                        odds: bestOutcome2.odds,
+                        stake: stakes.stake2
+                    },
+                    {
+                        outcome: bestOutcome3.name,
+                        bookmaker: bestOutcome3.bookmaker,
+                        odds: bestOutcome3.odds,
+                        stake: stakes.stake3
+                    }
+                ]
+            };
+        }
+
+        return null;
     }
 
     /**
