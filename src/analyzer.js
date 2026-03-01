@@ -58,6 +58,17 @@ class OpportunityAnalyzer {
     }
 
     /**
+     * Check if event has already started (in-play)
+     */
+    isEventInPlay(event) {
+        const commenceTime = new Date(event.commenceTime);
+        const now = new Date();
+        // Consider event in-play if it started more than 5 minutes ago
+        // (5 min buffer for clock skew and pre-match odds validity)
+        return now.getTime() > (commenceTime.getTime() + 5 * 60 * 1000);
+    }
+
+    /**
      * Main analysis function
      */
     analyze(data) {
@@ -77,6 +88,9 @@ class OpportunityAnalyzer {
         for (const event of data.oddsData) {
             // Skip if sport is disabled
             if (!this.alertConfig.isSportEnabled(event.sport)) continue;
+
+            // Skip in-play events to avoid stale odds false positives
+            if (this.isEventInPlay(event)) continue;
 
             // Find pure arbitrage within bookmakers
             const arbOpps = this.findArbitrage(event);
