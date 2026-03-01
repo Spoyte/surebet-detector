@@ -328,19 +328,29 @@ class OpportunityAnalyzer {
 
     /**
      * Check if Pinnacle odds are significantly different from consensus
-     * Returns true if Pinnacle appears to have stale/bad data
+     * Returns an object with { isStale: boolean, direction: 'higher'|'lower'|'normal' }
      * 
      * NOTE: Pinnacle is a sharp bookmaker - when it differs from consensus,
      * it often means the soft bookmakers are slow to adjust, not that Pinnacle is wrong.
-     * We use a more lenient threshold and only flag extreme deviations.
+     * 
+     * - If Pinnacle has LOWER odds than consensus: Soft bookmakers may be slow to adjust
+     *   to new information. This could indicate +EV opportunities at soft bookmakers.
+     * - If Pinnacle has HIGHER odds than consensus: Pinnacle thinks probability is lower.
+     *   Soft bookmakers are overpricing - avoid these bets.
      */
-    isPinnacleStale(pinnacleOdds, consensusOdds) {
-        if (!consensusOdds || consensusOdds === 0) return false;
+    checkPinnacleDeviation(pinnacleOdds, consensusOdds) {
+        if (!consensusOdds || consensusOdds === 0) {
+            return { isStale: false, direction: 'normal', ratio: 1 };
+        }
         const ratio = pinnacleOdds / consensusOdds;
-        // Only flag if Pinnacle is >2.5x or <0.4x of consensus (extreme deviations)
-        // Pinnacle is sharp - trust it more than consensus of soft bookmakers
         const extremeThreshold = 2.5;
-        return ratio > extremeThreshold || ratio < (1 / extremeThreshold);
+        
+        if (ratio > extremeThreshold) {
+            return { isStale: true, direction: 'higher', ratio };
+        } else if (ratio < (1 / extremeThreshold)) {
+            return { isStale: true, direction: 'lower', ratio };
+        }
+        return { isStale: false, direction: 'normal', ratio };
     }
 
     /**
@@ -374,23 +384,30 @@ class OpportunityAnalyzer {
             });
         }
 
-        // Check if Pinnacle has stale data for any outcome
-        const staleOutcomes = new Set();
+        // Check if Pinnacle has stale data for any outcome and categorize by direction
+        const staleOutcomes = new Map(); // outcomeName -> { direction, ratio }
         for (let i = 0; i < pinnacleH2H.outcomes.length; i++) {
             const consensusEntry = consensusOdds[i];
-            if (this.isPinnacleStale(pinnacleH2H.outcomes[i].odds, consensusEntry.median)) {
-                staleOutcomes.add(pinnacleH2H.outcomes[i].name);
-                opportunities.suspicious.push({
-                    type: 'suspicious',
-                    event: event.eventName,
-                    sport: event.sport,
-                    outcome: pinnacleH2H.outcomes[i].name,
-                    bookmaker: 'Pinnacle',
-                    odds: pinnacleH2H.outcomes[i].odds,
-                    consensusOdds: consensusEntry.median,
-                    ratio: parseFloat((pinnacleH2H.outcomes[i].odds / consensusEntry.median).toFixed(2)),
-                    note: 'Pinnacle odds significantly different from consensus - possible stale data'
-                });
+            const deviation = this.checkPinnacleDeviation(pinnacleH2H.outcomes[i].odds, consensusEntry.median);
+            
+            if (deviation.isStale) {
+                staleOutcomes.set(pinnacleH2H.outcomes[i].name, deviation);
+                
+                // Only flag as suspicious if Pinnacle has LOWER odds (potential value opportunity)
+                // If Pinnacle has HIGHER odds, the soft bookmakers are overpricing - not suspicious, just bad value
+                if (deviation.direction === 'lower') {
+                    opportunities.suspicious.push({
+                        type: 'suspicious',
+                        event: event.eventName,
+                        sport: event.sport,
+                        outcome: pinnacleH2H.outcomes[i].name,
+                        bookmaker: 'Pinnacle',
+                        odds: pinnacleH2H.outcomes[i].odds,
+                        consensusOdds: consensusEntry.median,
+                        ratio: parseFloat(deviation.ratio.toFixed(2)),
+                        note: 'Pinnacle odds significantly LOWER than consensus - potential +EV opportunity at soft bookmakers'
+                    });
+                }
             }
         }
 
@@ -408,23 +425,30 @@ class OpportunityAnalyzer {
                 if (!pinnacleOutcome) continue;
 
                 const oddsRatio = outcome.odds / pinnacleOutcome.odds;
+                const deviation = staleOutcomes.get(outcome.name);
 
-                // Skip EV calculation if Pinnacle has stale data for this outcome
-                // But only for extreme deviations (>2.5x) - Pinnacle is sharp and often ahead of market
-                if (staleOutcomes.has(outcome.name)) {
-                    // Still log it but at lower severity - might be genuine market movement
-                    opportunities.suspicious.push({
-                        type: 'suspicious',
-                        event: event.eventName,
-                        sport: event.sport,
-                        outcome: outcome.name,
-                        bookmaker: bookmaker.name,
-                        odds: outcome.odds,
-                        pinnacleOdds: pinnacleOutcome.odds,
-                        ratio: parseFloat(oddsRatio.toFixed(2)),
-                        note: 'Extreme deviation from Pinnacle - possible promotion or data error (Pinnacle may be more accurate)'
-                    });
-                    continue;
+                // Handle extreme deviations from Pinnacle
+                if (deviation) {
+                    if (deviation.direction === 'higher') {
+                        // Pinnacle has HIGHER odds than consensus - soft bookmakers are overpricing
+                        // This is -EV territory, skip but log for awareness
+                        opportunities.suspicious.push({
+                            type: 'suspicious',
+                            event: event.eventName,
+                            sport: event.sport,
+                            outcome: outcome.name,
+                            bookmaker: bookmaker.name,
+                            odds: outcome.odds,
+                            pinnacleOdds: pinnacleOutcome.odds,
+                            ratio: parseFloat(oddsRatio.toFixed(2)),
+                            note: 'Soft bookmaker overpriced vs Pinnacle - avoid (Pinnacle likely more accurate)'
+                        });
+                        continue;
+                    } else if (deviation.direction === 'lower') {
+                        // Pinnacle has LOWER odds than consensus - potential value opportunity
+                        // Calculate EV using Pinnacle as baseline even with deviation
+                        // (the deviation itself suggests soft bookmakers are slow to adjust)
+                    }
                 }
 
                 // Flag suspicious odds (likely promotions or data errors)
