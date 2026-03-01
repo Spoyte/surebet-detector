@@ -2,7 +2,7 @@
 
 ## Current Status: ✅ OPERATIONAL
 
-**Date:** 2026-03-01  
+**Date:** 2026-03-02  
 **Project:** surebet-detector  
 **Config File:** `/root/.openclaw/workspace/surebet-detector/config/.env`
 
@@ -12,10 +12,24 @@
 
 The Odds API key is currently **ACTIVE** and functioning normally.
 
-### Latest API Usage (2026-03-01 21:30 CST):
-- **Requests Used:** 28
-- **Requests Remaining:** 472
+### Latest API Usage (2026-03-02 03:30 CST):
+- **Requests Used:** 45
+- **Requests Remaining:** 455
 - **Status:** ✅ Healthy
+
+---
+
+## Recent Improvements
+
+### 2026-03-02: Expanded Bookmaker Coverage
+**Issue:** Tennis events only had Pinnacle odds because the fetcher was filtering for French bookmakers only (Unibet, Betclic, Winamax). Tennis events from the API primarily have bookmakers like 888sport, NordicBet, Betsson, MarathonBet, and WilliamHill.
+
+**Fix:** Expanded the bookmaker whitelist in `src/fetcher.js` to include:
+- Betsson, NordicBet, 888sport (commonly available for tennis)
+- MarathonBet, WilliamHill (additional coverage)
+- Betfair, Bet365 (major exchanges/bookmakers)
+
+**Result:** Tennis events now have 2-6 bookmakers each (up from 1), enabling arbitrage detection across all tracked sports.
 
 ---
 
@@ -27,6 +41,8 @@ The system automatically tracks API status and will alert if:
 - Invalid API key errors occur (401)
 
 ### Recent Activity:
+- ✅ 2026-03-02 03:32 - API responding normally, 30 events fetched (after bookmaker expansion fix)
+- ✅ 2026-03-02 03:30 - API responding normally, 29 events fetched
 - ✅ 2026-03-01 21:30 - API responding normally, 30 events fetched
 - ✅ 2026-03-01 21:06 - API responding normally, 29 events fetched
 - ✅ 2026-03-01 20:30 - API responding normally
