@@ -122,6 +122,32 @@ class Logger {
     }
 
     /**
+     * Create a child logger with additional context
+     */
+    child(context = {}) {
+        const childLogger = new Logger({
+            ...this.config,
+            level: this.config.level,
+            console: this.config.console,
+            file: this.config.file
+        });
+        
+        // Copy parent logger's state
+        childLogger.stats = this.stats;
+        childLogger.logBuffer = this.logBuffer;
+        childLogger.currentLogFile = this.currentLogFile;
+        childLogger.currentFileSize = this.currentFileSize;
+        
+        // Create wrapped methods that include the context
+        const originalWrite = childLogger.write.bind(childLogger);
+        childLogger.write = async (level, message, ctx = {}) => {
+            return originalWrite(level, message, { ...context, ...ctx });
+        };
+        
+        return childLogger;
+    }
+
+    /**
      * Format log entry
      */
     formatEntry(level, message, context = {}) {

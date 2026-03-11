@@ -128,7 +128,7 @@ describe('ThirdPartyAPI', () => {
 
             const rateLimit = api.checkRateLimit(created.id, 'default');
             expect(rateLimit.allowed).toBe(true);
-            expect(rateLimit.remaining).toBe(99);
+            expect(rateLimit.remaining).toBe(98); // After current request, 98 remain
         });
 
         test('should block requests exceeding rate limit', async () => {

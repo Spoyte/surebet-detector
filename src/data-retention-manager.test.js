@@ -147,6 +147,9 @@ describe('DataRetentionManager', () => {
       await fs.writeFile(testFile, content);
       await manager.archiveFile(testFile, DATA_TYPES.OPPORTUNITIES);
       
+      // Delete the original file to ensure we're testing the restore
+      await fs.unlink(testFile).catch(() => {});
+      
       // Restore it
       const result = await manager.restoreFile('restore-test.json.gz', DATA_TYPES.OPPORTUNITIES, testFile);
       expect(result.success).toBe(true);

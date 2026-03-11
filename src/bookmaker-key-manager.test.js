@@ -30,7 +30,7 @@ describe('BookmakerKeyManager', () => {
     });
 
     test('should emit initialized event', async () => {
-      const spy = jest.fn();
+      const spy = vi.fn();
       manager.on('initialized', spy);
       await manager.initialize();
       expect(spy).toHaveBeenCalled();
@@ -126,13 +126,14 @@ describe('BookmakerKeyManager', () => {
         apiKey: 'old-key',
         apiSecret: 'old-secret'
       });
+      const originalId = original.id; // Capture ID before rotation
       
       const rotated = await manager.rotateKey('unibet', {
         apiKey: 'new-key',
         apiSecret: 'new-secret'
       });
       
-      expect(rotated.id).not.toBe(original.id);
+      expect(rotated.id).not.toBe(originalId);
       expect(rotated.requestCount).toBe(0);
     });
 
@@ -256,7 +257,7 @@ describe('BookmakerKeyManager', () => {
     });
 
     test('should emit keyAdded event', async () => {
-      const spy = jest.fn();
+      const spy = vi.fn();
       manager.on('keyAdded', spy);
       
       await manager.addKey('unibet', { apiKey: 'test' });
@@ -269,7 +270,7 @@ describe('BookmakerKeyManager', () => {
     test('should emit keyDeleted event', async () => {
       await manager.addKey('unibet', { apiKey: 'test' });
       
-      const spy = jest.fn();
+      const spy = vi.fn();
       manager.on('keyDeleted', spy);
       
       await manager.deleteKey('unibet');

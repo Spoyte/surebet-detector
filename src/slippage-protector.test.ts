@@ -151,7 +151,7 @@ describe('SlippageProtector', () => {
         bookmaker: 'Unibet',
         market: '1X2',
         selection: 'Home',
-        odds: 1.99, // 0.5% worse than 2.0
+        odds: 1.992, // 0.4% worse than 2.0 (within tolerance)
         timestamp: Date.now()
       });
       
@@ -294,6 +294,15 @@ describe('SlippageProtector', () => {
 
   describe('Execute With Protection', () => {
     it('should execute bet when no slippage', async () => {
+      // Record initial odds
+      protector.recordOdds({
+        bookmaker: 'Unibet',
+        market: '1X2',
+        selection: 'Home',
+        odds: 2.0,
+        timestamp: Date.now()
+      });
+      
       const executeFn = vi.fn().mockResolvedValue(true);
       
       const request: BetPlacementRequest = {

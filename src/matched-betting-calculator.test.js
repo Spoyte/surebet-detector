@@ -219,13 +219,13 @@ describe('MatchedBettingCalculator', () => {
         bookmaker: 'Bookmaker B',
         type: 'risk-free',
         value: 20,
-        expiryDate: '2026-01-31'
+        expiryDate: '2026-06-30'
       });
 
       const active = calculator.getActivePromotions();
       expect(active).toHaveLength(2);
       // Should be sorted by expiry date
-      expect(new Date(active[0].expiryDate)).toBeLessThan(new Date(active[1].expiryDate));
+      expect(new Date(active[0].expiryDate).getTime()).toBeLessThan(new Date(active[1].expiryDate).getTime());
     });
   });
 
@@ -377,10 +377,12 @@ describe('MatchedBettingCalculator', () => {
   });
 
   describe('Event Emitter', () => {
-    test('emits promotion:registered event', (done) => {
-      calculator.on('promotion:registered', (promo) => {
-        expect(promo.bookmaker).toBe('TestBook');
-        done();
+    test('emits promotion:registered event', async () => {
+      const promise = new Promise((resolve) => {
+        calculator.on('promotion:registered', (promo) => {
+          expect(promo.bookmaker).toBe('TestBook');
+          resolve();
+        });
       });
 
       calculator.registerPromotion({
@@ -388,12 +390,16 @@ describe('MatchedBettingCalculator', () => {
         type: 'free-bet',
         value: 10
       });
+      
+      await promise;
     });
 
-    test('emits bet:tracked event', (done) => {
-      calculator.on('bet:tracked', (bet) => {
-        expect(bet.bookmaker).toBe('TestBook');
-        done();
+    test('emits bet:tracked event', async () => {
+      const promise = new Promise((resolve) => {
+        calculator.on('bet:tracked', (bet) => {
+          expect(bet.bookmaker).toBe('TestBook');
+          resolve();
+        });
       });
 
       calculator.trackBet({
@@ -401,22 +407,28 @@ describe('MatchedBettingCalculator', () => {
         bookmaker: 'TestBook',
         stake: 10
       });
+      
+      await promise;
     });
 
-    test('emits bet:settled event', (done) => {
+    test('emits bet:settled event', async () => {
       const betId = calculator.trackBet({
         type: 'qualifying',
         bookmaker: 'TestBook',
         stake: 10
       });
 
-      calculator.on('bet:settled', (bet) => {
-        expect(bet.id).toBe(betId);
-        expect(bet.status).toBe('settled');
-        done();
+      const promise = new Promise((resolve) => {
+        calculator.on('bet:settled', (bet) => {
+          expect(bet.id).toBe(betId);
+          expect(bet.status).toBe('settled');
+          resolve();
+        });
       });
 
       calculator.settleBet(betId, 'back-win', 5.0);
+      
+      await promise;
     });
   });
 });

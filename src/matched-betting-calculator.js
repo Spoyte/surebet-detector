@@ -9,7 +9,7 @@
  * - Profit tracking across matched betting activities
  */
 
-const logger = require('./logger');
+const logger = require('./logger').default;
 const { EventEmitter } = require('events');
 
 class MatchedBettingCalculator extends EventEmitter {
@@ -193,11 +193,11 @@ class MatchedBettingCalculator extends EventEmitter {
     // If back bet wins: profit includes returned stake
     const backWinProfit = freeBetAmount * backOdds;
     const backWinLiability = -(layStake * (layOdds - 1));
-    const backWinNet = backWinProfit + backWinLiability - freeBetAmount; // Subtract original stake
+    const backWinNet = backWinProfit + backWinLiability; // Don't subtract stake for free bet
     
     // If lay bet wins
     const layWinCommission = layStake * commission;
-    const layWinNet = layStake - layWinCommission - freeBetAmount; // Subtract original stake
+    const layWinNet = layStake - layWinCommission; // Don't subtract stake for free bet
     
     const guaranteedProfit = Math.min(backWinNet, layWinNet);
     const conversionRate = (guaranteedProfit / freeBetAmount) * 100;
@@ -445,7 +445,7 @@ class MatchedBettingCalculator extends EventEmitter {
    * @param {Object} promotion - Promotion details
    */
   registerPromotion(promotion) {
-    const id = promotion.id || `promo-${Date.now()}`;
+    const id = promotion.id || `promo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const promo = {
       id,
       bookmaker: promotion.bookmaker,

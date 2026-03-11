@@ -546,7 +546,7 @@ class DataRetentionManager {
       const archivePath = path.join(archiveDir, fileName);
 
       // Check if compressed
-      const compressedPath = `${archivePath}.gz`;
+      const compressedPath = fileName.endsWith('.gz') ? archivePath : `${archivePath}.gz`;
       let sourcePath = archivePath;
       let isCompressed = false;
 

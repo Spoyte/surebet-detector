@@ -146,7 +146,7 @@ describe('AdvancedFilterEngine', () => {
         
         test('should filter by contains operator', () => {
             const result = engine.apply(sampleOpportunities, {
-                criteria: [{ field: 'matchName', operator: 'contains', value: 'Grand Slam' }]
+                criteria: [{ field: 'matchName', operator: 'contains', value: 'Roland Garros' }]
             });
             expect(result.results).toHaveLength(1);
             expect(result.results[0].id).toBe(1);

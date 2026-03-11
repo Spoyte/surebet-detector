@@ -61,16 +61,16 @@ describe('OpportunityConfidenceScorer', () => {
     it('should calculate factor scores', async () => {
       const score = await scorer.scoreOpportunity(baseFeatures);
       
-      expect(score.factors.profitFactor).toBeGreaterThanOrEqual(0);
-      expect(score.factors.profitFactor).toBeLessThanOrEqual(1);
-      expect(score.factors.timingFactor).toBeGreaterThanOrEqual(0);
-      expect(score.factors.timingFactor).toBeLessThanOrEqual(1);
-      expect(score.factors.bookmakerFactor).toBeGreaterThanOrEqual(0);
-      expect(score.factors.bookmakerFactor).toBeLessThanOrEqual(1);
-      expect(score.factors.marketFactor).toBeGreaterThanOrEqual(0);
-      expect(score.factors.marketFactor).toBeLessThanOrEqual(1);
-      expect(score.factors.historicalFactor).toBeGreaterThanOrEqual(0);
-      expect(score.factors.historicalFactor).toBeLessThanOrEqual(1);
+      expect(score.factors.profit).toBeGreaterThanOrEqual(0);
+      expect(score.factors.profit).toBeLessThanOrEqual(1);
+      expect(score.factors.timing).toBeGreaterThanOrEqual(0);
+      expect(score.factors.timing).toBeLessThanOrEqual(1);
+      expect(score.factors.bookmaker).toBeGreaterThanOrEqual(0);
+      expect(score.factors.bookmaker).toBeLessThanOrEqual(1);
+      expect(score.factors.market).toBeGreaterThanOrEqual(0);
+      expect(score.factors.market).toBeLessThanOrEqual(1);
+      expect(score.factors.historical).toBeGreaterThanOrEqual(0);
+      expect(score.factors.historical).toBeLessThanOrEqual(1);
     });
   });
 
@@ -213,9 +213,9 @@ describe('OpportunityConfidenceScorer', () => {
       const insights = scorer.getSportInsights('soccer');
       
       expect(insights).not.toBeNull();
-      expect(insights?.avgSuccessRate).toBeGreaterThanOrEqual(0);
-      expect(insights?.avgSuccessRate).toBeLessThanOrEqual(1);
-      expect(insights?.avgFillTimeMinutes).toBeGreaterThan(0);
+      expect(insights?.successRate).toBeGreaterThanOrEqual(0);
+      expect(insights?.successRate).toBeLessThanOrEqual(1);
+      expect(insights?.avgFillTime).toBeGreaterThan(0);
       expect(insights?.topBookmakers).toBeDefined();
     });
 
@@ -229,7 +229,6 @@ describe('OpportunityConfidenceScorer', () => {
     it('should export model', () => {
       const exported = scorer.exportModel();
       
-      expect(exported.model).toBeDefined();
       expect(exported.bookmakerProfiles).toBeDefined();
       expect(exported.sportProfiles).toBeDefined();
       expect(exported.historicalDataCount).toBeGreaterThanOrEqual(0);

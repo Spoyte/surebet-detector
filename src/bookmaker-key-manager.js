@@ -361,7 +361,7 @@ class BookmakerKeyManager extends EventEmitter {
       currentUsage: recentRequests.length,
       limit: key.rateLimit.requests,
       remaining: Math.max(0, key.rateLimit.requests - recentRequests.length),
-      resetAt: new Date(recentRequests[0] + windowMs).toISOString(),
+      resetAt: recentRequests.length > 0 ? new Date(recentRequests[0] + windowMs).toISOString() : new Date(now + windowMs).toISOString(),
       utilizationPercent: (recentRequests.length / key.rateLimit.requests * 100).toFixed(1)
     };
   }
