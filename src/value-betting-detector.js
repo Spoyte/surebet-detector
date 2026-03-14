@@ -194,6 +194,11 @@ class ValueBettingDetector {
                 const outcome = h2h.outcomes[i];
                 const trueProb = trueProbabilities[i];
                 
+                // Skip if no true probability available for this outcome
+                if (!trueProb || !trueProb.probability) {
+                    continue;
+                }
+                
                 // Skip if odds outside acceptable range
                 if (outcome.odds < this.config.minOdds || outcome.odds > this.config.maxOdds) {
                     continue;
