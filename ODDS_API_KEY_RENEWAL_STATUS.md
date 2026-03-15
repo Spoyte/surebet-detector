@@ -12,10 +12,10 @@
 
 The Odds API key is currently **ACTIVE** and functioning normally.
 
-### Latest API Usage (2026-03-15 11:31 CST):
-- **Requests Used:** 283
-- **Requests Remaining:** 217
-- **Events Fetched:** 14
+### Latest API Usage (2026-03-15 23:36 CST):
+- **Requests Used:** 321
+- **Requests Remaining:** 179
+- **Events Fetched:** 41
 - **Status:** ✅ Healthy
 
 ---
@@ -42,6 +42,8 @@ The system automatically tracks API status and will alert if:
 - Invalid API key errors occur (401)
 
 ### Recent Activity:
+- ✅ 2026-03-15 23:36 - API responding normally, 41 events fetched, 321 requests used, 179 remaining, 1 +EV opportunity detected (Aalesund @ Unibet +7.37% EV)
+- ✅ 2026-03-15 21:36 - API responding normally, 35 events fetched, 319 requests used, 181 remaining, 1 +EV opportunity detected (Bologna vs Sassuolo Draw @ Unibet +5.02% EV)
 - ✅ 2026-03-15 13:38 - API responding normally, 12 events fetched, 293 requests used, 207 remaining, 2 +EV opportunities detected (Macarthur FC +5.91% EV, SGS Essen +30.62% EV)
 - ✅ 2026-03-15 11:31 - API responding normally, 14 events fetched, 283 requests used, 217 remaining, 1 +EV opportunity detected (Macarthur FC @ Unibet +5.91% EV)
 - ✅ 2026-03-14 15:32 - API responding normally, 18 events fetched, 233 requests used, 267 remaining, 1 +EV opportunity detected (Draw @ Unibet +6.06% EV)
@@ -111,9 +113,9 @@ The API returns usage headers with every request:
 |------|--------|
 | Current API Key | ✅ ACTIVE |
 | Config File Location | `/root/.openclaw/workspace/surebet-detector/config/.env` |
-| Last Check | 2026-03-15 13:38 CST |
+| Last Check | 2026-03-15 23:36 CST |
 | Next Check | Automatic (hourly cron) |
 
 ---
 
-*Last updated: 2026-03-15 13:38 by automated hourly check*
+*Last updated: 2026-03-15 23:36 by automated hourly check*
