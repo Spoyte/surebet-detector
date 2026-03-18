@@ -1,8 +1,8 @@
 # Odds API Key Renewal - Status Report
 
-## Current Status: ✅ OPERATIONAL
+## Current Status: ⚠️ LOW QUOTA
 
-**Date:** 2026-03-11
+**Date:** 2026-03-18
 **Project:** surebet-detector
 **Config File:** `/root/.openclaw/workspace/surebet-detector/config/.env`
 
@@ -10,13 +10,13 @@
 
 ## Status Summary
 
-The Odds API key is currently **ACTIVE** and functioning normally.
+The Odds API key is currently **ACTIVE** but running low on quota.
 
-### Latest API Usage (2026-03-15 23:36 CST):
-- **Requests Used:** 321
-- **Requests Remaining:** 179
-- **Events Fetched:** 41
-- **Status:** ✅ Healthy
+### Latest API Usage (2026-03-18 16:38 CST):
+- **Requests Used:** 427
+- **Requests Remaining:** 73
+- **Events Fetched:** 16
+- **Status:** ⚠️ Low Quota (73 requests remaining)
 
 ---
 
@@ -42,6 +42,9 @@ The system automatically tracks API status and will alert if:
 - Invalid API key errors occur (401)
 
 ### Recent Activity:
+- ⚠️ 2026-03-18 16:38 - API responding normally, 16 events fetched, 427 requests used, 73 remaining, 0 opportunities detected
+- ⚠️ 2026-03-18 12:32 - API responding normally, 16 events fetched, 426 requests used, 74 remaining, 0 opportunities detected
+- ⚠️ 2026-03-18 06:33 - API responding normally, 24 events fetched, 425 requests used, 75 remaining, 2 +EV opportunities detected (Tirante @ Unibet +5.58%, Tirante @ Winamax +6.6%)
 - ✅ 2026-03-15 23:36 - API responding normally, 41 events fetched, 321 requests used, 179 remaining, 1 +EV opportunity detected (Aalesund @ Unibet +7.37% EV)
 - ✅ 2026-03-15 21:36 - API responding normally, 35 events fetched, 319 requests used, 181 remaining, 1 +EV opportunity detected (Bologna vs Sassuolo Draw @ Unibet +5.02% EV)
 - ✅ 2026-03-15 13:38 - API responding normally, 12 events fetched, 293 requests used, 207 remaining, 2 +EV opportunities detected (Macarthur FC +5.91% EV, SGS Essen +30.62% EV)
@@ -111,11 +114,12 @@ The API returns usage headers with every request:
 
 | Item | Status |
 |------|--------|
-| Current API Key | ✅ ACTIVE |
+| Current API Key | ⚠️ LOW QUOTA (73 remaining) |
 | Config File Location | `/root/.openclaw/workspace/surebet-detector/config/.env` |
-| Last Check | 2026-03-15 23:36 CST |
+| Last Check | 2026-03-18 16:38 CST |
 | Next Check | Automatic (hourly cron) |
+| Action Needed | Consider API key renewal soon |
 
 ---
 
-*Last updated: 2026-03-15 23:36 by automated hourly check*
+*Last updated: 2026-03-18 16:38 by automated hourly check*
