@@ -8,6 +8,27 @@
 
 ---
 
+## Latest Update (2026-03-18 21:05 CST)
+
+### API Usage:
+- **Requests Used:** 441
+- **Requests Remaining:** 59
+- **Events Fetched:** 17
+- **Polymarket Markets:** 100
+
+### Opportunities Detected:
+- **Arbitrage:** 0
+- **+EV Opportunities:** 2
+  1. Antalyaspor @ Unibet (+8% EV)
+  2. Draw @ Unibet (+7.46% EV)
+
+### System Health:
+- ✅ Odds API: Healthy
+- ✅ Polymarket: Healthy
+- ✅ Forex API: Healthy
+
+---
+
 ## Status Summary
 
 The Odds API key is currently **ACTIVE** but running low on quota.
@@ -42,6 +63,8 @@ The system automatically tracks API status and will alert if:
 - Invalid API key errors occur (401)
 
 ### Recent Activity:
+- ⚠️ 2026-03-18 21:05 - API responding normally, 17 events fetched, 441 requests used, 59 remaining, 2 +EV opportunities detected (Antalyaspor +8%, Draw +7.46%)
+- ⚠️ 2026-03-18 20:32 - API responding normally, 22 events fetched, 440 requests used, 60 remaining, 1 +EV opportunity detected (Antalyaspor +8.17%)
 - ⚠️ 2026-03-18 16:38 - API responding normally, 16 events fetched, 427 requests used, 73 remaining, 0 opportunities detected
 - ⚠️ 2026-03-18 12:32 - API responding normally, 16 events fetched, 426 requests used, 74 remaining, 0 opportunities detected
 - ⚠️ 2026-03-18 06:33 - API responding normally, 24 events fetched, 425 requests used, 75 remaining, 2 +EV opportunities detected (Tirante @ Unibet +5.58%, Tirante @ Winamax +6.6%)
@@ -116,10 +139,10 @@ The API returns usage headers with every request:
 |------|--------|
 | Current API Key | ⚠️ LOW QUOTA (73 remaining) |
 | Config File Location | `/root/.openclaw/workspace/surebet-detector/config/.env` |
-| Last Check | 2026-03-18 16:38 CST |
+| Last Check | 2026-03-18 21:05 CST |
 | Next Check | Automatic (hourly cron) |
 | Action Needed | Consider API key renewal soon |
 
 ---
 
-*Last updated: 2026-03-18 16:38 by automated hourly check*
+*Last updated: 2026-03-18 21:05 by automated hourly check*
