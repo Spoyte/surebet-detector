@@ -8,25 +8,22 @@
 
 ---
 
-## Latest Update (2026-03-19 14:33 CST)
+## Latest Update (2026-03-19 16:33 CST)
 
 ### API Usage:
-- **Requests Used:** 493 / 500
-- **Requests Remaining:** 7
+- **Requests Used:** 497 / 500
+- **Requests Remaining:** 3
 - **Events Fetched:** 16
 - **Polymarket Markets:** 100
 
 ### Opportunities Detected:
 - **Arbitrage:** 0
-- **+EV Opportunities:** 5
-  1. AEK Larnaca @ Unibet (+10.29% EV) - Crystal Palace vs AEK Larnaca
-  2. Aliaksandra Sasnovich @ Winamax (+8.46% EV) - vs Paula Badosa
-  3. Celta Vigo @ Unibet (+6.56% EV) - Celta Vigo vs Lyon
-  4. Sigma Olomouc @ Betclic (+5.6% EV) - Sigma Olomouc vs FSV Mainz 05
-  5. Draw @ Betclic (+5.26% EV) - Sigma Olomouc vs FSV Mainz 05
+- **+EV Opportunities:** 2
+  1. Aliaksandra Sasnovich @ Winamax (+6.88% EV) - vs Paula Badosa
+  2. NK Celje @ Unibet (+5.22% EV) - NK Celje vs AEK Athens
 
 ### System Health:
-- ⚠️ Odds API: CRITICAL (7 requests remaining - ~3 hours left)
+- ⚠️ Odds API: CRITICAL (3 requests remaining - ~1 hour left)
 - ✅ Polymarket: Healthy
 - ✅ Forex API: Healthy
 
@@ -36,11 +33,11 @@
 
 The Odds API key is currently **ACTIVE** but **CRITICALLY LOW** on quota.
 
-### Latest API Usage (2026-03-19 14:05 CST):
-- **Requests Used:** 491 / 500
-- **Requests Remaining:** 9
+### Latest API Usage (2026-03-19 16:33 CST):
+- **Requests Used:** 497 / 500
+- **Requests Remaining:** 3
 - **Events Fetched:** 16
-- **Status:** 🚨 CRITICAL - ~4 hours of requests remaining at current rate
+- **Status:** 🚨 CRITICAL - ~1 hour of requests remaining at current rate
 
 ---
 
@@ -66,6 +63,7 @@ The system automatically tracks API status and will alert if:
 - Invalid API key errors occur (401)
 
 ### Recent Activity:
+- 🚨 2026-03-19 16:33 - API responding normally, 16 events fetched, 497 requests used, 3 remaining, 2 +EV opportunities detected
 - 🚨 2026-03-19 14:33 - API responding normally, 16 events fetched, 493 requests used, 7 remaining, 5 +EV opportunities detected
 - 🚨 2026-03-19 14:05 - API responding normally, 16 events fetched, 491 requests used, 9 remaining, 5 +EV opportunities detected
 - ⚠️ 2026-03-19 13:32 - API responding normally, 16 events fetched, 490 requests used, 10 remaining, 4 +EV opportunities detected
@@ -126,12 +124,12 @@ The API returns usage headers with every request:
 
 | Item | Status |
 |------|--------|
-| Current API Key | 🚨 CRITICAL (7 remaining) |
+| Current API Key | 🚨 CRITICAL (3 remaining) |
 | Config File Location | `/root/.openclaw/workspace/surebet-detector/config/.env` |
-| Last Check | 2026-03-19 14:33 CST |
+| Last Check | 2026-03-19 16:33 CST |
 | Next Check | Automatic (hourly cron) |
-| Action Needed | **RENEW API KEY IMMEDIATELY** - only ~3 hours remaining |
+| Action Needed | **RENEW API KEY IMMEDIATELY** - only ~1 hour remaining |
 
 ---
 
-*Last updated: 2026-03-19 14:33 by automated hourly check*
+*Last updated: 2026-03-19 16:33 by automated hourly check*

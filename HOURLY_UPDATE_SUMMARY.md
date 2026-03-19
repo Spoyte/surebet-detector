@@ -1,25 +1,22 @@
 # Surebet Detector - Hourly Update Summary
 
-**Time:** 2026-03-19 02:33 PM (Asia/Shanghai)  
-**Report ID:** HOURLY_REPORT_2026-03-19_2233
+**Time:** 2026-03-19 04:33 PM (Asia/Shanghai)  
+**Report ID:** HOURLY_REPORT_2026-03-20_0033
 
 ---
 
 ## ✅ Task Completed Successfully
 
 ### 1. Latest Odds Data Fetched
-- **Odds API:** 16 events fetched (493 requests used, 7 remaining)
+- **Odds API:** 16 events fetched (497 requests used, 3 remaining)
 - **Polymarket:** 100 markets fetched
 - **Forex API:** 1 USD = 0.87 EUR (operational)
 
 ### 2. Opportunities Detected
 - **Arbitrage:** 0 opportunities
-- **+EV Opportunities:** 5 detected
-  1. AEK Larnaca @ Unibet (+10.29% EV) - Crystal Palace vs AEK Larnaca
-  2. Aliaksandra Sasnovich @ Winamax (+8.46% EV) - vs Paula Badosa
-  3. Celta Vigo @ Unibet (+6.56% EV) - Celta Vigo vs Lyon
-  4. Sigma Olomouc @ Betclic (+5.6% EV) - Sigma Olomouc vs FSV Mainz 05
-  5. Draw @ Betclic (+5.26% EV) - Sigma Olomouc vs FSV Mainz 05
+- **+EV Opportunities:** 2 detected
+  1. Aliaksandra Sasnovich @ Winamax (+6.88% EV) - vs Paula Badosa
+  2. NK Celje @ Unibet (+5.22% EV) - NK Celje vs AEK Athens
 - **Suspicious Odds:** 0 flagged
 
 ### 3. Code Improvements Needed
@@ -29,17 +26,17 @@
 
 ### 4. GitHub Status
 - Working tree clean — no new changes to commit
-- 8 commits ahead of origin/main (already pending push)
+- 9 commits ahead of origin/main (already pending push)
 - No push performed (no new changes)
 
 ---
 
-## 🚨 CRITICAL: API Quota Warning
+## 🚨 CRITICAL: API Quota Exhausted
 
-**Odds API key is CRITICALLY LOW on quota:**
-- **Requests Used:** 493 / 500
-- **Requests Remaining:** 7
-- **Status:** Will need renewal within the next ~3 hours
+**Odds API key has reached its quota limit:**
+- **Requests Used:** 497 / 500
+- **Requests Remaining:** 3
+- **Status:** Will exhaust quota within the next ~1 hour
 
 **Action Required:** Renew API key at https://the-odds-api.com/
 
@@ -47,4 +44,4 @@
 
 ## Summary
 
-The Surebet Detector is operating normally. 5 +EV opportunities detected in this cycle (2 from Unibet, 2 from Betclic, 1 from Winamax). The system is healthy with all APIs responding correctly. **URGENT: The API key needs immediate attention (only 7 requests remaining).**
+The Surebet Detector is operating normally. 2 +EV opportunities detected in this cycle (1 from Winamax, 1 from Unibet). The system is healthy with all APIs responding correctly. **URGENT: The API key needs immediate attention (only 3 requests remaining).**
