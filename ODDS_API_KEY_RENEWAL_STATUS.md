@@ -1,30 +1,30 @@
 # Odds API Key Renewal - Status Report
 
-## Current Status: ⚠️ LOW QUOTA
+## Current Status: 🚨 CRITICAL - RENEWAL REQUIRED
 
-**Date:** 2026-03-18
+**Date:** 2026-03-19
 **Project:** surebet-detector
 **Config File:** `/root/.openclaw/workspace/surebet-detector/config/.env`
 
 ---
 
-## Latest Update (2026-03-19 01:40 CST)
+## Latest Update (2026-03-19 09:36 CST)
 
 ### API Usage:
-- **Requests Used:** 453
-- **Requests Remaining:** 47
-- **Events Fetched:** 20
+- **Requests Used:** 479 / 500
+- **Requests Remaining:** 21
+- **Events Fetched:** 18
 - **Polymarket Markets:** 100
 
 ### Opportunities Detected:
 - **Arbitrage:** 0
 - **+EV Opportunities:** 3
-  1. Draw @ Unibet (+9.46% EV) - Atalanta BC vs Bayern Munich
-  2. Newcastle United @ Unibet (+6.8% EV) - vs Barcelona
-  3. Atalanta BC @ Unibet (+29.5% EV) - vs Bayern Munich
+  1. AEK Larnaca @ Unibet (+12.99% EV) - Crystal Palace vs AEK Larnaca
+  2. Celta Vigo @ Unibet (+9.33% EV) - Celta Vigo vs Lyon
+  3. Aliaksandra Sasnovich @ Winamax (+7.66% EV) - vs Paula Badosa
 
 ### System Health:
-- ✅ Odds API: Healthy
+- ✅ Odds API: Healthy (but critically low quota)
 - ✅ Polymarket: Healthy
 - ✅ Forex API: Healthy
 
@@ -32,13 +32,13 @@
 
 ## Status Summary
 
-The Odds API key is currently **ACTIVE** but running low on quota.
+The Odds API key is currently **ACTIVE** but **CRITICALLY LOW** on quota.
 
-### Latest API Usage (2026-03-19 01:40 CST):
-- **Requests Used:** 453
-- **Requests Remaining:** 47
-- **Events Fetched:** 20
-- **Status:** ⚠️ Low Quota (47 requests remaining)
+### Latest API Usage (2026-03-19 09:36 CST):
+- **Requests Used:** 479 / 500
+- **Requests Remaining:** 21
+- **Events Fetched:** 18
+- **Status:** 🚨 CRITICAL - Only ~1 hour of requests remaining
 
 ---
 
@@ -64,6 +64,7 @@ The system automatically tracks API status and will alert if:
 - Invalid API key errors occur (401)
 
 ### Recent Activity:
+- 🚨 2026-03-19 09:36 - API responding normally, 18 events fetched, 479 requests used, 21 remaining, 3 +EV opportunities detected (AEK Larnaca +12.99%, Celta Vigo +9.33%, Sasnovich +7.66%)
 - ⚠️ 2026-03-19 01:40 - API responding normally, 20 events fetched, 453 requests used, 47 remaining, 3 +EV opportunities detected (Atalanta +29.5%, Draw +9.46%, Newcastle +6.8%)
 - ⚠️ 2026-03-18 21:05 - API responding normally, 17 events fetched, 441 requests used, 59 remaining, 2 +EV opportunities detected (Antalyaspor +8%, Draw +7.46%)
 - ⚠️ 2026-03-18 20:32 - API responding normally, 22 events fetched, 440 requests used, 60 remaining, 1 +EV opportunity detected (Antalyaspor +8.17%)
@@ -139,12 +140,12 @@ The API returns usage headers with every request:
 
 | Item | Status |
 |------|--------|
-| Current API Key | ⚠️ LOW QUOTA (47 remaining) |
+| Current API Key | 🚨 CRITICAL (21 remaining) |
 | Config File Location | `/root/.openclaw/workspace/surebet-detector/config/.env` |
-| Last Check | 2026-03-19 01:40 CST |
+| Last Check | 2026-03-19 09:36 CST |
 | Next Check | Automatic (hourly cron) |
-| Action Needed | Consider API key renewal soon |
+| Action Needed | **RENEW API KEY IMMEDIATELY** |
 
 ---
 
-*Last updated: 2026-03-19 01:40 by automated hourly check*
+*Last updated: 2026-03-19 09:36 by automated hourly check*
