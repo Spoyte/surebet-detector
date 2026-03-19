@@ -1,6 +1,6 @@
 # Odds API Key Renewal - Status Report
 
-## Current Status: 🚨 CRITICAL - QUOTA NEARLY EXHAUSTED
+## Current Status: 🚨 QUOTA EXHAUSTED - USING CACHED DATA
 
 **Date:** 2026-03-19
 **Project:** surebet-detector
@@ -8,36 +8,53 @@
 
 ---
 
-## Latest Update (2026-03-19 16:33 CST)
+## Latest Update (2026-03-19 20:31 CST)
 
 ### API Usage:
-- **Requests Used:** 497 / 500
-- **Requests Remaining:** 3
-- **Events Fetched:** 16
+- **Requests Used:** 500 / 500 (QUOTA EXHAUSTED)
+- **Requests Remaining:** 0
+- **Events Fetched:** 16 (from cache)
 - **Polymarket Markets:** 100
 
 ### Opportunities Detected:
 - **Arbitrage:** 0
-- **+EV Opportunities:** 2
-  1. Aliaksandra Sasnovich @ Winamax (+6.88% EV) - vs Paula Badosa
-  2. NK Celje @ Unibet (+5.22% EV) - NK Celje vs AEK Athens
+- **+EV Opportunities:** 1
+  1. Celta Vigo @ Unibet (+6.53% EV) - Celta Vigo vs Lyon
 
 ### System Health:
-- ⚠️ Odds API: CRITICAL (3 requests remaining - ~1 hour left)
+- ❌ Odds API: QUOTA EXHAUSTED - Using cached data
 - ✅ Polymarket: Healthy
 - ✅ Forex API: Healthy
+- ✅ Fallback system: Working (cache serving 16 events)
 
 ---
 
 ## Status Summary
 
-The Odds API key is currently **ACTIVE** but **CRITICALLY LOW** on quota.
+The Odds API key has **EXHAUSTED its monthly quota** (500/500 requests used).
 
-### Latest API Usage (2026-03-19 16:33 CST):
-- **Requests Used:** 497 / 500
-- **Requests Remaining:** 3
-- **Events Fetched:** 16
-- **Status:** 🚨 CRITICAL - ~1 hour of requests remaining at current rate
+### Latest API Usage (2026-03-19 20:31 CST):
+- **Requests Used:** 500 / 500
+- **Requests Remaining:** 0
+- **Events Fetched:** 16 (from cache)
+- **Status:** ❌ QUOTA EXHAUSTED - System using cached data
+
+### Recent Activity:
+- ❌ 2026-03-19 20:31 - QUOTA EXHAUSTED, using cached data, 16 events, 1 +EV opportunity detected
+- 🚨 2026-03-19 16:33 - API responding normally, 16 events fetched, 497 requests used, 3 remaining, 2 +EV opportunities detected
+- 🚨 2026-03-19 14:33 - API responding normally, 16 events fetched, 493 requests used, 7 remaining, 5 +EV opportunities detected
+- 🚨 2026-03-19 14:05 - API responding normally, 16 events fetched, 491 requests used, 9 remaining, 5 +EV opportunities detected
+- ⚠️ 2026-03-19 13:32 - API responding normally, 16 events fetched, 490 requests used, 10 remaining, 4 +EV opportunities detected
+- ⚠️ 2026-03-19 12:04 - API responding normally, 17 events fetched, 483 requests used, 17 remaining, 5 +EV opportunities detected
+- 🚨 2026-03-19 09:36 - API responding normally, 18 events fetched, 479 requests used, 21 remaining, 3 +EV opportunities detected
+- ⚠️ 2026-03-19 01:40 - API responding normally, 20 events fetched, 453 requests used, 47 remaining, 3 +EV opportunities detected
+- ⚠️ 2026-03-18 21:05 - API responding normally, 17 events fetched, 441 requests used, 59 remaining, 2 +EV opportunities detected
+- ⚠️ 2026-03-18 20:32 - API responding normally, 22 events fetched, 440 requests used, 60 remaining, 1 +EV opportunity detected
+- ⚠️ 2026-03-18 16:38 - API responding normally, 16 events fetched, 427 requests used, 73 remaining, 0 opportunities detected
+- ⚠️ 2026-03-18 12:32 - API responding normally, 16 events fetched, 426 requests used, 74 remaining, 0 opportunities detected
+- ⚠️ 2026-03-18 06:33 - API responding normally, 24 events fetched, 425 requests used, 75 remaining, 2 +EV opportunities detected
+- ✅ 2026-03-15 23:36 - API responding normally, 41 events fetched, 319 requests used, 179 remaining
+- ✅ 2026-03-15 21:36 - API responding normally, 35 events fetched, 319 requests used, 181 remaining
 
 ---
 
@@ -61,22 +78,6 @@ The system automatically tracks API status and will alert if:
 - Quota is exhausted (401 OUT_OF_USAGE_CREDITS)
 - Rate limits are exceeded (429)
 - Invalid API key errors occur (401)
-
-### Recent Activity:
-- 🚨 2026-03-19 16:33 - API responding normally, 16 events fetched, 497 requests used, 3 remaining, 2 +EV opportunities detected
-- 🚨 2026-03-19 14:33 - API responding normally, 16 events fetched, 493 requests used, 7 remaining, 5 +EV opportunities detected
-- 🚨 2026-03-19 14:05 - API responding normally, 16 events fetched, 491 requests used, 9 remaining, 5 +EV opportunities detected
-- ⚠️ 2026-03-19 13:32 - API responding normally, 16 events fetched, 490 requests used, 10 remaining, 4 +EV opportunities detected
-- ⚠️ 2026-03-19 12:04 - API responding normally, 17 events fetched, 483 requests used, 17 remaining, 5 +EV opportunities detected
-- 🚨 2026-03-19 09:36 - API responding normally, 18 events fetched, 479 requests used, 21 remaining, 3 +EV opportunities detected
-- ⚠️ 2026-03-19 01:40 - API responding normally, 20 events fetched, 453 requests used, 47 remaining, 3 +EV opportunities detected
-- ⚠️ 2026-03-18 21:05 - API responding normally, 17 events fetched, 441 requests used, 59 remaining, 2 +EV opportunities detected
-- ⚠️ 2026-03-18 20:32 - API responding normally, 22 events fetched, 440 requests used, 60 remaining, 1 +EV opportunity detected
-- ⚠️ 2026-03-18 16:38 - API responding normally, 16 events fetched, 427 requests used, 73 remaining, 0 opportunities detected
-- ⚠️ 2026-03-18 12:32 - API responding normally, 16 events fetched, 426 requests used, 74 remaining, 0 opportunities detected
-- ⚠️ 2026-03-18 06:33 - API responding normally, 24 events fetched, 425 requests used, 75 remaining, 2 +EV opportunities detected
-- ✅ 2026-03-15 23:36 - API responding normally, 41 events fetched, 319 requests used, 179 remaining
-- ✅ 2026-03-15 21:36 - API responding normally, 35 events fetched, 319 requests used, 181 remaining
 
 ---
 
@@ -124,12 +125,12 @@ The API returns usage headers with every request:
 
 | Item | Status |
 |------|--------|
-| Current API Key | 🚨 CRITICAL (3 remaining) |
+| Current API Key | ❌ QUOTA EXHAUSTED (500/500 used) |
 | Config File Location | `/root/.openclaw/workspace/surebet-detector/config/.env` |
-| Last Check | 2026-03-19 16:33 CST |
+| Last Check | 2026-03-19 20:31 CST |
 | Next Check | Automatic (hourly cron) |
-| Action Needed | **RENEW API KEY IMMEDIATELY** - only ~1 hour remaining |
+| Action Needed | **RENEW API KEY** - System using cached data until renewal |
 
 ---
 
-*Last updated: 2026-03-19 16:33 by automated hourly check*
+*Last updated: 2026-03-19 20:31 by automated hourly check*
