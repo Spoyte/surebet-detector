@@ -1,7 +1,7 @@
 # Surebet Detector - Hourly Update Summary
 
-**Date:** Friday, March 20th, 2026 — 2:30 AM (Asia/Shanghai)
-**Report ID:** HOURLY_REPORT_2026-03-20_1030
+**Date:** Friday, March 20th, 2026 — 3:09 AM (Asia/Shanghai)
+**Report ID:** HOURLY_REPORT_2026-03-20_1109
 
 ---
 
@@ -26,9 +26,9 @@
 
 ---
 
-## 💰 +EV Opportunities Detected
+## 💰 Opportunities Detected
 
-*No +EV opportunities detected in this run (cached data may be stale).*
+*No arbitrage or +EV opportunities detected in this run (cached data may be stale).*
 
 ---
 
@@ -64,7 +64,7 @@ No code changes were made this run. The system is functioning correctly with the
 ## 📈 Git Status
 
 - **Branch:** main
-- **Status:** 17 commits ahead of origin/main (PUSH FAILED - Authentication error)
+- **Status:** 18 commits ahead of origin/main (PUSH FAILED - Authentication error)
 - **Working tree:** Clean (no uncommitted changes)
 
 **Note:** Git push failed due to expired/invalid GitHub PAT token. Commits are ready to push once authentication is resolved.
