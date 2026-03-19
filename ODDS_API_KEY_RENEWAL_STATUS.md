@@ -1,6 +1,6 @@
 # Odds API Key Renewal - Status Report
 
-## Current Status: ⚠️ LOW QUOTA - MONITOR CLOSELY
+## Current Status: 🚨 CRITICAL - QUOTA NEARLY EXHAUSTED
 
 **Date:** 2026-03-19
 **Project:** surebet-detector
@@ -8,25 +8,25 @@
 
 ---
 
-## Latest Update (2026-03-19 12:04 CST)
+## Latest Update (2026-03-19 14:05 CST)
 
 ### API Usage:
-- **Requests Used:** 483 / 500
-- **Requests Remaining:** 17
-- **Events Fetched:** 17
-- **Polymarket Markets:** 100
+- **Requests Used:** 491 / 500
+- **Requests Remaining:** 9
+- **Events Fetched:** 16
+- **Polymarket Markets:** 50
 
 ### Opportunities Detected:
 - **Arbitrage:** 0
 - **+EV Opportunities:** 5
-  1. AEK Larnaca @ Unibet (+12.99% EV) - Crystal Palace vs AEK Larnaca
-  2. Celta Vigo @ Unibet (+9.55% EV) - Celta Vigo vs Lyon
-  3. Aliaksandra Sasnovich @ Winamax (+7.66% EV) - vs Paula Badosa
-  4. FC Midtjylland @ Unibet (+6.92% EV) - Nottingham Forest vs FC Midtjylland
-  5. Moise Kouame @ Unibet (+5.83% EV) - Zachary Svajda vs Moise Kouame
+  1. AEK Larnaca @ Unibet (+10.29% EV) - Crystal Palace vs AEK Larnaca
+  2. Aliaksandra Sasnovich @ Winamax (+8.46% EV) - vs Paula Badosa
+  3. Celta Vigo @ Unibet (+6.56% EV) - Celta Vigo vs Lyon
+  4. Sigma Olomouc @ Betclic (+5.6% EV) - Sigma Olomouc vs FSV Mainz 05
+  5. Draw @ Betclic (+5.26% EV) - Sigma Olomouc vs FSV Mainz 05
 
 ### System Health:
-- ✅ Odds API: Healthy (low quota: 17 remaining)
+- ⚠️ Odds API: CRITICAL (9 requests remaining - ~4 hours left)
 - ✅ Polymarket: Healthy
 - ✅ Forex API: Healthy
 
@@ -34,13 +34,13 @@
 
 ## Status Summary
 
-The Odds API key is currently **ACTIVE** but running **LOW** on quota.
+The Odds API key is currently **ACTIVE** but **CRITICALLY LOW** on quota.
 
-### Latest API Usage (2026-03-19 12:04 CST):
-- **Requests Used:** 483 / 500
-- **Requests Remaining:** 17
-- **Events Fetched:** 17
-- **Status:** ⚠️ LOW - ~8 hours of requests remaining at current rate
+### Latest API Usage (2026-03-19 14:05 CST):
+- **Requests Used:** 491 / 500
+- **Requests Remaining:** 9
+- **Events Fetched:** 16
+- **Status:** 🚨 CRITICAL - ~4 hours of requests remaining at current rate
 
 ---
 
@@ -66,6 +66,8 @@ The system automatically tracks API status and will alert if:
 - Invalid API key errors occur (401)
 
 ### Recent Activity:
+- 🚨 2026-03-19 14:05 - API responding normally, 16 events fetched, 491 requests used, 9 remaining, 5 +EV opportunities detected
+- ⚠️ 2026-03-19 13:32 - API responding normally, 16 events fetched, 490 requests used, 10 remaining, 4 +EV opportunities detected
 - ⚠️ 2026-03-19 12:04 - API responding normally, 17 events fetched, 483 requests used, 17 remaining, 5 +EV opportunities detected
 - 🚨 2026-03-19 09:36 - API responding normally, 18 events fetched, 479 requests used, 21 remaining, 3 +EV opportunities detected
 - ⚠️ 2026-03-19 01:40 - API responding normally, 20 events fetched, 453 requests used, 47 remaining, 3 +EV opportunities detected
@@ -74,8 +76,8 @@ The system automatically tracks API status and will alert if:
 - ⚠️ 2026-03-18 16:38 - API responding normally, 16 events fetched, 427 requests used, 73 remaining, 0 opportunities detected
 - ⚠️ 2026-03-18 12:32 - API responding normally, 16 events fetched, 426 requests used, 74 remaining, 0 opportunities detected
 - ⚠️ 2026-03-18 06:33 - API responding normally, 24 events fetched, 425 requests used, 75 remaining, 2 +EV opportunities detected
-- ✅ 2026-03-15 23:36 - API responding normally, 41 events fetched, 321 requests used, 179 remaining, 1 +EV opportunity detected
-- ✅ 2026-03-15 21:36 - API responding normally, 35 events fetched, 319 requests used, 181 remaining, 1 +EV opportunity detected
+- ✅ 2026-03-15 23:36 - API responding normally, 41 events fetched, 319 requests used, 179 remaining
+- ✅ 2026-03-15 21:36 - API responding normally, 35 events fetched, 319 requests used, 181 remaining
 
 ---
 
@@ -123,12 +125,12 @@ The API returns usage headers with every request:
 
 | Item | Status |
 |------|--------|
-| Current API Key | ⚠️ LOW (17 remaining) |
+| Current API Key | 🚨 CRITICAL (9 remaining) |
 | Config File Location | `/root/.openclaw/workspace/surebet-detector/config/.env` |
-| Last Check | 2026-03-19 12:04 CST |
+| Last Check | 2026-03-19 14:05 CST |
 | Next Check | Automatic (hourly cron) |
-| Action Needed | Monitor quota; renew if needed before depletion |
+| Action Needed | **RENEW API KEY IMMEDIATELY** - only ~4 hours remaining |
 
 ---
 
-*Last updated: 2026-03-19 12:04 by automated hourly check*
+*Last updated: 2026-03-19 14:05 by automated hourly check*
