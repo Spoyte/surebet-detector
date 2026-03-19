@@ -1,6 +1,6 @@
 # Odds API Key Renewal - Status Report
 
-## Current Status: 🚨 CRITICAL - RENEWAL REQUIRED
+## Current Status: ⚠️ LOW QUOTA - MONITOR CLOSELY
 
 **Date:** 2026-03-19
 **Project:** surebet-detector
@@ -8,23 +8,25 @@
 
 ---
 
-## Latest Update (2026-03-19 09:36 CST)
+## Latest Update (2026-03-19 12:04 CST)
 
 ### API Usage:
-- **Requests Used:** 479 / 500
-- **Requests Remaining:** 21
-- **Events Fetched:** 18
+- **Requests Used:** 483 / 500
+- **Requests Remaining:** 17
+- **Events Fetched:** 17
 - **Polymarket Markets:** 100
 
 ### Opportunities Detected:
 - **Arbitrage:** 0
-- **+EV Opportunities:** 3
+- **+EV Opportunities:** 5
   1. AEK Larnaca @ Unibet (+12.99% EV) - Crystal Palace vs AEK Larnaca
-  2. Celta Vigo @ Unibet (+9.33% EV) - Celta Vigo vs Lyon
+  2. Celta Vigo @ Unibet (+9.55% EV) - Celta Vigo vs Lyon
   3. Aliaksandra Sasnovich @ Winamax (+7.66% EV) - vs Paula Badosa
+  4. FC Midtjylland @ Unibet (+6.92% EV) - Nottingham Forest vs FC Midtjylland
+  5. Moise Kouame @ Unibet (+5.83% EV) - Zachary Svajda vs Moise Kouame
 
 ### System Health:
-- ✅ Odds API: Healthy (but critically low quota)
+- ✅ Odds API: Healthy (low quota: 17 remaining)
 - ✅ Polymarket: Healthy
 - ✅ Forex API: Healthy
 
@@ -32,13 +34,13 @@
 
 ## Status Summary
 
-The Odds API key is currently **ACTIVE** but **CRITICALLY LOW** on quota.
+The Odds API key is currently **ACTIVE** but running **LOW** on quota.
 
-### Latest API Usage (2026-03-19 09:36 CST):
-- **Requests Used:** 479 / 500
-- **Requests Remaining:** 21
-- **Events Fetched:** 18
-- **Status:** 🚨 CRITICAL - Only ~1 hour of requests remaining
+### Latest API Usage (2026-03-19 12:04 CST):
+- **Requests Used:** 483 / 500
+- **Requests Remaining:** 17
+- **Events Fetched:** 17
+- **Status:** ⚠️ LOW - ~8 hours of requests remaining at current rate
 
 ---
 
@@ -64,35 +66,16 @@ The system automatically tracks API status and will alert if:
 - Invalid API key errors occur (401)
 
 ### Recent Activity:
-- 🚨 2026-03-19 09:36 - API responding normally, 18 events fetched, 479 requests used, 21 remaining, 3 +EV opportunities detected (AEK Larnaca +12.99%, Celta Vigo +9.33%, Sasnovich +7.66%)
-- ⚠️ 2026-03-19 01:40 - API responding normally, 20 events fetched, 453 requests used, 47 remaining, 3 +EV opportunities detected (Atalanta +29.5%, Draw +9.46%, Newcastle +6.8%)
-- ⚠️ 2026-03-18 21:05 - API responding normally, 17 events fetched, 441 requests used, 59 remaining, 2 +EV opportunities detected (Antalyaspor +8%, Draw +7.46%)
-- ⚠️ 2026-03-18 20:32 - API responding normally, 22 events fetched, 440 requests used, 60 remaining, 1 +EV opportunity detected (Antalyaspor +8.17%)
+- ⚠️ 2026-03-19 12:04 - API responding normally, 17 events fetched, 483 requests used, 17 remaining, 5 +EV opportunities detected
+- 🚨 2026-03-19 09:36 - API responding normally, 18 events fetched, 479 requests used, 21 remaining, 3 +EV opportunities detected
+- ⚠️ 2026-03-19 01:40 - API responding normally, 20 events fetched, 453 requests used, 47 remaining, 3 +EV opportunities detected
+- ⚠️ 2026-03-18 21:05 - API responding normally, 17 events fetched, 441 requests used, 59 remaining, 2 +EV opportunities detected
+- ⚠️ 2026-03-18 20:32 - API responding normally, 22 events fetched, 440 requests used, 60 remaining, 1 +EV opportunity detected
 - ⚠️ 2026-03-18 16:38 - API responding normally, 16 events fetched, 427 requests used, 73 remaining, 0 opportunities detected
 - ⚠️ 2026-03-18 12:32 - API responding normally, 16 events fetched, 426 requests used, 74 remaining, 0 opportunities detected
-- ⚠️ 2026-03-18 06:33 - API responding normally, 24 events fetched, 425 requests used, 75 remaining, 2 +EV opportunities detected (Tirante @ Unibet +5.58%, Tirante @ Winamax +6.6%)
-- ✅ 2026-03-15 23:36 - API responding normally, 41 events fetched, 321 requests used, 179 remaining, 1 +EV opportunity detected (Aalesund @ Unibet +7.37% EV)
-- ✅ 2026-03-15 21:36 - API responding normally, 35 events fetched, 319 requests used, 181 remaining, 1 +EV opportunity detected (Bologna vs Sassuolo Draw @ Unibet +5.02% EV)
-- ✅ 2026-03-15 13:38 - API responding normally, 12 events fetched, 293 requests used, 207 remaining, 2 +EV opportunities detected (Macarthur FC +5.91% EV, SGS Essen +30.62% EV)
-- ✅ 2026-03-15 11:31 - API responding normally, 14 events fetched, 283 requests used, 217 remaining, 1 +EV opportunity detected (Macarthur FC @ Unibet +5.91% EV)
-- ✅ 2026-03-14 15:32 - API responding normally, 18 events fetched, 233 requests used, 267 remaining, 1 +EV opportunity detected (Draw @ Unibet +6.06% EV)
-- ✅ 2026-03-12 03:21 - API responding normally, 19 events fetched, 165 requests used, 335 remaining, 1 +EV opportunity detected (Bradford City +6.44% EV)
-- ✅ 2026-03-11 20:48 - API responding normally, 16 events fetched, 163 requests used, 337 remaining, 2 +EV opportunities detected (Bayer Leverkusen +14.5% EV)
-- ✅ 2026-03-11 19:18 - API responding normally, 16 events fetched, 161 requests used, 339 remaining, 2 +EV opportunities detected
-- ✅ 2026-03-04 07:00 - API responding normally, 25 events fetched, 151 requests used, 349 remaining
-- ✅ 2026-03-04 06:00 - API responding normally, 31 events fetched, 147 requests used, 353 remaining
-- ✅ 2026-03-04 05:30 - API responding normally, 41 events fetched, 146 requests used, 354 remaining
-- ✅ 2026-03-04 05:00 - API responding normally, 46 events fetched, 143 requests used, 357 remaining
-- ✅ 2026-03-04 04:30 - API responding normally, 44 events fetched, 142 requests used, 358 remaining
-- ✅ 2026-03-04 02:00 - API responding normally, 24 events fetched, 131 requests used, 369 remaining
-- ✅ 2026-03-04 01:30 - API responding normally, 16 events fetched, 129 requests used, 371 remaining
-- ✅ 2026-03-04 01:00 - API responding normally, 16 events fetched, 127 requests used, 373 remaining
-- ✅ 2026-03-02 08:30 - API responding normally, 23 events fetched, 55 requests used, 445 remaining
-- ✅ 2026-03-02 03:32 - API responding normally, 30 events fetched (after bookmaker expansion fix)
-- ✅ 2026-03-02 03:30 - API responding normally, 29 events fetched
-- ✅ 2026-03-01 21:30 - API responding normally, 30 events fetched
-- ✅ 2026-03-01 21:06 - API responding normally, 29 events fetched
-- ✅ 2026-03-01 20:30 - API responding normally
+- ⚠️ 2026-03-18 06:33 - API responding normally, 24 events fetched, 425 requests used, 75 remaining, 2 +EV opportunities detected
+- ✅ 2026-03-15 23:36 - API responding normally, 41 events fetched, 321 requests used, 179 remaining, 1 +EV opportunity detected
+- ✅ 2026-03-15 21:36 - API responding normally, 35 events fetched, 319 requests used, 181 remaining, 1 +EV opportunity detected
 
 ---
 
@@ -140,12 +123,12 @@ The API returns usage headers with every request:
 
 | Item | Status |
 |------|--------|
-| Current API Key | 🚨 CRITICAL (21 remaining) |
+| Current API Key | ⚠️ LOW (17 remaining) |
 | Config File Location | `/root/.openclaw/workspace/surebet-detector/config/.env` |
-| Last Check | 2026-03-19 09:36 CST |
+| Last Check | 2026-03-19 12:04 CST |
 | Next Check | Automatic (hourly cron) |
-| Action Needed | **RENEW API KEY IMMEDIATELY** |
+| Action Needed | Monitor quota; renew if needed before depletion |
 
 ---
 
-*Last updated: 2026-03-19 09:36 by automated hourly check*
+*Last updated: 2026-03-19 12:04 by automated hourly check*
