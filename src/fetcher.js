@@ -10,7 +10,7 @@ class OddsFetcher {
         this.config = config;
         this.cacheDir = path.join(__dirname, '../data/cache');
         this.apiStatus = {
-            oddsApi: { healthy: true, lastError: null, errorCount: 0 },
+            oddsApi: { healthy: true, lastError: null, errorCount: 0, quotaExhausted: false },
             polymarket: { healthy: true, lastError: null, errorCount: 0 },
             forex: { healthy: true, lastError: null, errorCount: 0 }
         };
@@ -57,6 +57,13 @@ class OddsFetcher {
     }
 
     /**
+     * Check if Odds API quota is exhausted (to skip unnecessary requests)
+     */
+    isOddsApiQuotaExhausted() {
+        return this.apiStatus.oddsApi.quotaExhausted === true;
+    }
+
+    /**
      * Clean up old cache files, keeping only the most recent N files
      */
     async cleanupCache(maxFiles = 10) {
@@ -95,6 +102,17 @@ class OddsFetcher {
             return [];
         }
 
+        // Skip API call if quota is already known to be exhausted
+        if (this.isOddsApiQuotaExhausted()) {
+            console.log(`⚠️  Odds API quota exhausted - skipping ${sport} ${market}, using cache`);
+            const cached = await this.getCachedOddsData(sport);
+            if (cached) {
+                console.log(`   Using cached data for ${sport} (${cached.length} events)`);
+                return cached;
+            }
+            return [];
+        }
+
         try {
             const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds`;
             const response = await axios.get(url, {
@@ -114,7 +132,12 @@ class OddsFetcher {
             console.log(`Odds API: ${used} used, ${remaining} remaining`);
             
             // Update API status on success
-            this.apiStatus.oddsApi = { healthy: true, lastError: null, errorCount: 0 };
+            this.apiStatus.oddsApi = { 
+                healthy: true, 
+                lastError: null, 
+                errorCount: 0,
+                quotaExhausted: false
+            };
             await this.persistApiStatus();
 
             return this.normalizeOddsAPIData(response.data, sport);
@@ -142,6 +165,8 @@ class OddsFetcher {
                     console.error('   Your API key has reached its monthly request limit.');
                     console.error('   Error code:', errorCode || 'OUT_OF_USAGE_CREDITS');
                     console.error('   Get a new key or upgrade at: https://the-odds-api.com/');
+                    // Mark quota as exhausted to skip future requests
+                    this.apiStatus.oddsApi.quotaExhausted = true;
                 } else {
                     console.error('❌ Odds API error: API key invalid or expired (401)');
                     console.error('   Please check your ODDS_API_KEY in config/.env');
@@ -480,6 +505,9 @@ class OddsFetcher {
     async fetchAll() {
         console.log('Starting data fetch...');
         const timestamp = new Date().toISOString();
+
+        // Load persisted API status to check for quota exhaustion
+        await this.loadPersistedApiStatus();
 
         // Fetch forex rate
         const forex = await this.fetchForexRate();
