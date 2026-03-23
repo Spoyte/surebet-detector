@@ -1,6 +1,6 @@
 # Surebet Detector - Hourly Update Summary
 
-**Date:** Monday, March 23rd, 2026 — 10:30 PM (Asia/Shanghai)  
+**Date:** Monday, March 23rd, 2026 — 11:03 PM (Asia/Shanghai)  
 **Report ID:** surebet-hourly-update (ad760c8b-1526-427d-9553-7c612fe985d6)
 
 ---
@@ -20,8 +20,8 @@
 
 | Service | Status | Details |
 |---------|--------|---------|
-| **Odds API** | ❌ | Quota exhausted (using cached data: 16 events) |
-| **Polymarket** | ✅ | 51 markets fetched |
+| **Odds API** | ⚠️ | Quota exhausted - using cached data (16 events) |
+| **Polymarket** | ✅ | 100 markets fetched |
 | **Forex API** | ✅ | USD/EUR rate active |
 
 ---
@@ -30,7 +30,7 @@
 
 ### Odds API Quota Exhausted
 - **Status:** API key has reached its monthly quota (500/500 requests used)
-- **Impact:** System is using cached data from March 19-20, 2026
+- **Impact:** System is using cached data from March 19, 2026
 - **Cached Events:** 16 (8 tennis, 8 soccer)
 - **Action Required:** Renew API key at https://the-odds-api.com/
 
