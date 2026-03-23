@@ -1,6 +1,6 @@
 # Surebet Detector - Hourly Update Summary
 
-**Date:** Monday, March 23rd, 2026 — 2:00 PM (Asia/Shanghai)  
+**Date:** Monday, March 23rd, 2026 — 3:30 PM (Asia/Shanghai)  
 **Report ID:** surebet-hourly-update (ad760c8b-1526-427d-9553-7c612fe985d6)
 
 ---
