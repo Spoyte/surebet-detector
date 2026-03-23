@@ -1,6 +1,6 @@
 # Surebet Detector - Hourly Update Summary
 
-**Date:** Monday, March 23rd, 2026 — 11:03 PM (Asia/Shanghai)  
+**Date:** Tuesday, March 24th, 2026 — 12:04 AM (Asia/Shanghai)  
 **Report ID:** surebet-hourly-update (ad760c8b-1526-427d-9553-7c612fe985d6)
 
 ---
@@ -21,7 +21,7 @@
 | Service | Status | Details |
 |---------|--------|---------|
 | **Odds API** | ⚠️ | Quota exhausted - using cached data (16 events) |
-| **Polymarket** | ✅ | 100 markets fetched |
+| **Polymarket** | ✅ | 51 markets fetched |
 | **Forex API** | ✅ | USD/EUR rate active |
 
 ---
